@@ -43,6 +43,13 @@
 /home/fizzer/ros_ws/build/2025_competition/adeept_awr/adeept_awr_description/CMakeFiles/edit_cache.dir
 /home/fizzer/ros_ws/build/2025_competition/adeept_awr/adeept_awr_description/CMakeFiles/test.dir
 /home/fizzer/ros_ws/build/2025_competition/adeept_awr/adeept_awr_description/CMakeFiles/_catkin_empty_exported_target.dir
+/home/fizzer/ros_ws/build/competition_controller/CMakeFiles/install/strip.dir
+/home/fizzer/ros_ws/build/competition_controller/CMakeFiles/install/local.dir
+/home/fizzer/ros_ws/build/competition_controller/CMakeFiles/install.dir
+/home/fizzer/ros_ws/build/competition_controller/CMakeFiles/list_install_components.dir
+/home/fizzer/ros_ws/build/competition_controller/CMakeFiles/rebuild_cache.dir
+/home/fizzer/ros_ws/build/competition_controller/CMakeFiles/edit_cache.dir
+/home/fizzer/ros_ws/build/competition_controller/CMakeFiles/test.dir
 /home/fizzer/ros_ws/build/2025_competition/enph353/enph353/CMakeFiles/install/strip.dir
 /home/fizzer/ros_ws/build/2025_competition/enph353/enph353/CMakeFiles/install/local.dir
 /home/fizzer/ros_ws/build/2025_competition/enph353/enph353/CMakeFiles/install.dir
@@ -104,13 +111,6 @@
 /home/fizzer/ros_ws/build/time_trials_initial/CMakeFiles/rebuild_cache.dir
 /home/fizzer/ros_ws/build/time_trials_initial/CMakeFiles/edit_cache.dir
 /home/fizzer/ros_ws/build/time_trials_initial/CMakeFiles/test.dir
-/home/fizzer/ros_ws/build/time_trials_minimum/CMakeFiles/install/strip.dir
-/home/fizzer/ros_ws/build/time_trials_minimum/CMakeFiles/install/local.dir
-/home/fizzer/ros_ws/build/time_trials_minimum/CMakeFiles/install.dir
-/home/fizzer/ros_ws/build/time_trials_minimum/CMakeFiles/list_install_components.dir
-/home/fizzer/ros_ws/build/time_trials_minimum/CMakeFiles/rebuild_cache.dir
-/home/fizzer/ros_ws/build/time_trials_minimum/CMakeFiles/edit_cache.dir
-/home/fizzer/ros_ws/build/time_trials_minimum/CMakeFiles/test.dir
 /home/fizzer/ros_ws/build/2025_competition/adeept_awr/adeept_awr_gazebo/CMakeFiles/install/strip.dir
 /home/fizzer/ros_ws/build/2025_competition/adeept_awr/adeept_awr_gazebo/CMakeFiles/install/local.dir
 /home/fizzer/ros_ws/build/2025_competition/adeept_awr/adeept_awr_gazebo/CMakeFiles/list_install_components.dir

@@ -6,11 +6,11 @@
 # testing this directory and lists subdirectories to be tested as well.
 subdirs("gtest")
 subdirs("2025_competition/adeept_awr/adeept_awr_description")
+subdirs("competition_controller")
 subdirs("2025_competition/enph353/enph353")
 subdirs("2025_competition/enph353/enph353_npcs")
 subdirs("2025_competition/robbie")
 subdirs("2025_competition/enph353/enph353_utils")
 subdirs("time_trials_initial")
-subdirs("time_trials_minimum")
 subdirs("2025_competition/adeept_awr/adeept_awr_gazebo")
 subdirs("2025_competition/enph353/enph353_gazebo")

@@ -55,12 +55,12 @@ CMAKE_BINARY_DIR = /home/fizzer/ros_ws/build
 # The main recursive "all" target.
 all: gtest/all
 all: 2025_competition/adeept_awr/adeept_awr_description/all
+all: competition_controller/all
 all: 2025_competition/enph353/enph353/all
 all: 2025_competition/enph353/enph353_npcs/all
 all: 2025_competition/robbie/all
 all: 2025_competition/enph353/enph353_utils/all
 all: time_trials_initial/all
-all: time_trials_minimum/all
 all: 2025_competition/adeept_awr/adeept_awr_gazebo/all
 all: 2025_competition/enph353/enph353_gazebo/all
 
@@ -69,12 +69,12 @@ all: 2025_competition/enph353/enph353_gazebo/all
 # The main recursive "preinstall" target.
 preinstall: gtest/preinstall
 preinstall: 2025_competition/adeept_awr/adeept_awr_description/preinstall
+preinstall: competition_controller/preinstall
 preinstall: 2025_competition/enph353/enph353/preinstall
 preinstall: 2025_competition/enph353/enph353_npcs/preinstall
 preinstall: 2025_competition/robbie/preinstall
 preinstall: 2025_competition/enph353/enph353_utils/preinstall
 preinstall: time_trials_initial/preinstall
-preinstall: time_trials_minimum/preinstall
 preinstall: 2025_competition/adeept_awr/adeept_awr_gazebo/preinstall
 preinstall: 2025_competition/enph353/enph353_gazebo/preinstall
 
@@ -88,12 +88,12 @@ clean: CMakeFiles/tests.dir/clean
 clean: CMakeFiles/download_extra_data.dir/clean
 clean: gtest/clean
 clean: 2025_competition/adeept_awr/adeept_awr_description/clean
+clean: competition_controller/clean
 clean: 2025_competition/enph353/enph353/clean
 clean: 2025_competition/enph353/enph353_npcs/clean
 clean: 2025_competition/robbie/clean
 clean: 2025_competition/enph353/enph353_utils/clean
 clean: time_trials_initial/clean
-clean: time_trials_minimum/clean
 clean: 2025_competition/adeept_awr/adeept_awr_gazebo/clean
 clean: 2025_competition/enph353/enph353_gazebo/clean
 
@@ -316,6 +316,24 @@ clean: 2025_competition/enph353/enph353_gazebo/clean
 .PHONY : 2025_competition/robbie/clean
 
 #=============================================================================
+# Directory level rules for directory competition_controller
+
+# Recursive "all" directory target.
+competition_controller/all:
+
+.PHONY : competition_controller/all
+
+# Recursive "preinstall" directory target.
+competition_controller/preinstall:
+
+.PHONY : competition_controller/preinstall
+
+# Recursive "clean" directory target.
+competition_controller/clean:
+
+.PHONY : competition_controller/clean
+
+#=============================================================================
 # Directory level rules for directory gtest
 
 # Recursive "all" directory target.
@@ -389,24 +407,6 @@ time_trials_initial/preinstall:
 time_trials_initial/clean:
 
 .PHONY : time_trials_initial/clean
-
-#=============================================================================
-# Directory level rules for directory time_trials_minimum
-
-# Recursive "all" directory target.
-time_trials_minimum/all:
-
-.PHONY : time_trials_minimum/all
-
-# Recursive "preinstall" directory target.
-time_trials_minimum/preinstall:
-
-.PHONY : time_trials_minimum/preinstall
-
-# Recursive "clean" directory target.
-time_trials_minimum/clean:
-
-.PHONY : time_trials_minimum/clean
 
 #=============================================================================
 # Target rules for target CMakeFiles/doxygen.dir
