@@ -1,0 +1,8 @@
+<launch>
+   <!-- My Package launch file -->
+   <node pkg="time_trials_ext"
+         type="move_robot.py"
+         name="move_robot" 
+         output="screen">
+   </node>
+</launch>

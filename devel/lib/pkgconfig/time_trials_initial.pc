@@ -1,0 +1,8 @@
+prefix=/home/fizzer/ros_ws/devel
+
+Name: time_trials_initial
+Description: Description of time_trials_initial
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 
