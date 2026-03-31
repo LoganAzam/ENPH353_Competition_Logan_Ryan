@@ -2,23 +2,21 @@
 
 import rospy
 from std_msgs.msg import Int32
+from sensor_msgs.msg import Image
 
 PLATE_SWEEP_NUMBER = 0
+images_list = []
 
-# Controls if node is running or not
-node_on = False
+def callback_state(data):
+    if data.data == PLATE_SWEEP_NUMBER:
+        # Start subscribing to camera topic.
+        rospy.Subscriber('/rrbot/camera1/image_raw', Image, callback_img)
 
-def callback(data):
-    if(data.data == PLATE_SWEEP_NUMBER):
-        node_on = True
-    else:
-        node_on = False
+def plate_sweep_listener():
+    # Listen to state changer topic
+    rospy.init_node('plate_sweep_node', anonymous=True)
+    rospy.Subscriber('/state_changer', Int32, callback_state)
+    rospy.spin()
 
-# Listen to state changer topic
-rospy.init_node('plate_sweep_node', anonymous=True)
-rospy.Subscriber('/state_changer', Int32, callback)
-
-while not rospy.is_shutdown():
-    if node_on:
-        # Do things
-        break
+if __name__ == '__main__':
+    plate_sweep_listener()
