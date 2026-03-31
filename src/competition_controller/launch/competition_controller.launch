@@ -5,4 +5,16 @@
          name="controller" 
          output="screen">
    </node>
+   <!-- Plate Sweep launch file -->
+   <node pkg="competition_controller"
+         type="plate_sweep.py"
+         name="plate_sweep" 
+         output="screen">
+   </node>
+   <!-- Road PID launch file -->
+   <node pkg="competition_controller"
+         type="road_PID.py"
+         name="road_PID" 
+         output="screen">
+   </node>
 </launch>
