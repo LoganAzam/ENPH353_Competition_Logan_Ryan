@@ -17,4 +17,10 @@
          name="road_PID" 
          output="screen">
    </node>
+   <!-- Motion Detector launch file -->
+   <node pkg="competition_controller"
+         type="motion_detector.py"
+         name="motion_detector" 
+         output="screen">
+   </node>
 </launch>

@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 import rospy
-from std_msgs.msg import String, Int32 # cite: 98
+from std_msgs.msg import String, Int32 
 
 def master_controller():
     # 1. Initialize the node ONCE with a single name
@@ -9,7 +9,7 @@ def master_controller():
 
     # 2. Define all your publishers
     # This one talks to the simulation scoring system
-    pub_score = rospy.Publisher('/score_tracker', String, queue_size=1) # cite: 91
+    pub_score = rospy.Publisher('/score_tracker', String, queue_size=1) 
     # This one talks to your other nodes (like road_PID)
     pub_state = rospy.Publisher('/state_changer', Int32, queue_size=1, latch=True)
 
@@ -18,8 +18,8 @@ def master_controller():
     rospy.sleep(1)
 
     # 4. Start the Competition Timer
-    # Format: 'TeamName,password,0,NA' [cite: 36, 104, 199]
-    # This registers your team and starts the 4-minute clock [cite: 36]
+    # Format: 'TeamName,password,0,NA'
+    # This registers your team and starts the 4-minute clock
     start_msg = "looker,1111,0,NA" 
     pub_score.publish(start_msg)
     rospy.loginfo("Timer started for team: looker")

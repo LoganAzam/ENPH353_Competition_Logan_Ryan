@@ -3,7 +3,7 @@
 import rospy
 import cv2
 import numpy as np
-from std_msgs.msg import String, Int32  # cite: 98
+from std_msgs.msg import String, Int32  
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Twist
@@ -17,15 +17,18 @@ class RoadFollower:
         self.bridge = CvBridge()
         self.active = False  # The node starts in an inactive state
     
-        # Mandatory publishers for the competition [cite: 91]
+        # Mandatory publishers for the competition 
         self.pub_cmd = rospy.Publisher('/B1/cmd_vel', Twist, queue_size=1)
         self.pub_score = rospy.Publisher('/score_tracker', String, queue_size=1)
-        
+        self.pub_state = rospy.Publisher('/state_changer', Int32, queue_size=1, latch=True)
+
         # Correct Topic: Based on your XML <cameraName> and <imageTopicName>
         self.image_sub = rospy.Subscriber("/B1/rrbot/camera1/image_raw", Image, self.callback, queue_size=3)
         
         # Subscriber to manage the modular state of the robot
         self.state_sub = rospy.Subscriber('/state_changer', Int32, self.state_callback, queue_size=1)
+
+        self.redline_detected = False
 
         # Mandatory 1-second delay for ROS Master registration 
         rospy.sleep(1)
@@ -40,11 +43,12 @@ class RoadFollower:
             if not self.active:
                 rospy.loginfo("road_PID node activated.")
             self.active = True
+            self.red_line_suppression_end = rospy.get_time() + 3.0
         else:
             if self.active:
                 rospy.loginfo("road_PID node deactivated.")
             self.active = False
-
+ 
     def callback(self, data):
         """
         Processes camera feed to follow the grey road using HSV masking and PID.
@@ -60,7 +64,7 @@ class RoadFollower:
             rospy.logerr(e)
             return
 
-        # 1. Convert to HSV to isolate color independent of brightness [cite: 323]
+        # 1. Convert to HSV to isolate color independent of brightness
         hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
 
         # 2. Define Grey Road Range (Low saturation isolates grey from green/blue)
@@ -70,16 +74,16 @@ class RoadFollower:
         
         # Create a binary mask where grey road pixels are white (255)
         mask = cv2.inRange(hsv, lower_grey, upper_grey)
-        rospy.loginfo("Mask created with grey range: Hue(0-180), Sat(0-50), Val(50-200)")
+        
         
 
         # 3. Define Region of Interest (ROI)
-        # We only look at the bottom quarter of the image to stay focused on the road
+        # We only look at the bottom 40% of the image to stay focused on the road
         h, w, _ = cv_image.shape
-        search_top = int(3 * h / 3)
+        search_top = int(0.65 * h)
         mask[0:search_top, 0:w] = 0
 
-        # 4. Calculate Moments to find the road's center [cite: 324]
+        # 4. Calculate Moments to find the road's center
         moments = cv2.moments(mask)
         move = Twist()
 
@@ -91,27 +95,74 @@ class RoadFollower:
             error = cx - w / 2
             
             # P-Controller Logic
-            move.linear.x = 0.2  # Constant forward velocity
-            move.angular.z = -float(error) / 100  # Proportional steering
+            if self.redline_detected and rospy.get_time() < self.red_line_suppression_end:
+                move.linear.x = 0.8  # Increased speed for cautious red line recovery
+            else:
+                move.linear.x = 0.5  # Constant forward velocity
+            move.angular.z = -float(error) / 65  # Proportional steering
         else:
             # If the road is lost, rotate slowly to find it
             move.linear.x = 0
             move.angular.z = 0.3
 
-        # Publish movement command to the simulation [cite: 91]
+        # Inside the RoadFollower callback
+        # Define Red HSV range (captures both ends of the hue spectrum)
+        red_mask = cv2.inRange(hsv, np.array([0, 100, 100]), np.array([10, 255, 255])) | \
+                cv2.inRange(hsv, np.array([170, 100, 100]), np.array([180, 255, 255]))
+
+        # Look specifically at the bottom 40% of the screen
+        if rospy.get_time() > self.red_line_suppression_end:
+            if cv2.countNonZero(red_mask[int(0.8*h):, :]) > 1000:
+                rospy.loginfo("Red line detected! Pausing PID and switching to Motion Tracking.")
+                
+                # 1. STOP the robot immediately to avoid collision penalties (-5pts)
+                self.pub_cmd.publish(Twist())
+                
+                # 2. Deactivate this node locally
+                self.active = False
+                
+                # 3. Trigger the next node (State 2 = Motion Tracking)
+                self.pub_state.publish(2) 
+                self.redline_detected = True
+                return
+
+        # 1. Define the Blue HSV range
+        # Hue: 100-130 (Blue), Saturation: 150-255 (Vibrant), Value: 50-255 (Brightness)
+        lower_blue = np.array([100, 150, 50])
+        upper_blue = np.array([130, 255, 255])
+
+        # 2. Create the mask
+        blue_mask = cv2.inRange(hsv, lower_blue, upper_blue)
+
+        # 3. Define the ROI (Bottom Half)
+        h, w, _ = cv_image.shape
+        # Slicing from h/2 to the end of the height
+        blue_bottom_half = blue_mask[int(h/2):, :]
+
+        # 4. Count the non-zero (white) pixels
+        blue_count = cv2.countNonZero(blue_bottom_half)
+
+        # Debugging log
+        if blue_count > 3500:
+            #rospy.loginfo(f"Blue detected! Pixel count: {blue_count}")
+            self.pub_cmd.publish(Twist())
+            self.active = False
+            self.pub_state.publish(3)
+
+        # Publish movement command to the simulation
         self.pub_cmd.publish(move)
 
-        # Optional Debug Window (comment out for final run to save RTF) [cite: 297]
-        cv2.imshow("Grey Road Mask", mask)
-        cv2.waitKey(1)
+        # Optional Debug Window (comment out for final run to save RTF)
+        #cv2.imshow("Grey Road Mask", mask)
+        #cv2.waitKey(1)
 
 if __name__ == '__main__':
-    # Initialize the ROS node [cite: 66, 208]
+    # Initialize the ROS node
     rospy.init_node('road_PID_node')
     
     try:
         follower = RoadFollower()
-        # Keep the node running until interrupted [cite: 219]
+        # Keep the node running until interrupted
         rospy.spin()
     except rospy.ROSInterruptException:
         pass
