@@ -47,7 +47,12 @@ class RoadFollower:
                 rospy.loginfo("road_PID node activated.")
             self.active = True
             self.red_line_suppression_end = rospy.get_time() + 3.0
-            self.blue_pix_suppression_end = rospy.get_time() + 2.0
+            self.roundabout_hug_entry = rospy.get_time() + 7.6
+            self.roundabout_hug_end = rospy.get_time() + 25.60
+            if self.signcount == 3:
+                self.blue_pix_suppression_end = rospy.get_time() + 7.0
+            else:
+                self.blue_pix_suppression_end = rospy.get_time() + 2.0
         else:
             if self.active:
                 rospy.loginfo("road_PID node deactivated.")
@@ -68,47 +73,58 @@ class RoadFollower:
             rospy.logerr(e)
             return
 
-        # 1. Convert to HSV to isolate color independent of brightness
         hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
-
-        # 2. Define Grey Road Range (Low saturation isolates grey from green/blue)
-        # Hue: 0-180, Saturation: 0-50 (Low), Value: 50-200 (Mid-range brightness)
-        lower_grey = np.array([0, 0, 50]) 
-        upper_grey = np.array([180, 50, 200])
-        
-        # Create a binary mask where grey road pixels are white (255)
-        mask = cv2.inRange(hsv, lower_grey, upper_grey)
-        
-        
-
-        # 3. Define Region of Interest (ROI)
-        # We only look at the bottom 40% of the image to stay focused on the road
         h, w, _ = cv_image.shape
         search_top = int(0.65 * h)
-        mask[0:search_top, 0:w] = 0
-
-        # 4. Calculate Moments to find the road's center
-        moments = cv2.moments(mask)
         move = Twist()
 
-        if moments['m00'] > 0:
-            # Calculate the horizontal center (centroid)
-            cx = int(moments['m10'] / moments['m00'])
+        # --- MODE SWITCH: NORMAL VS ROUNDABOUT ---
+        if self.signcount == 3 and rospy.get_time() > self.roundabout_hug_entry and rospy.get_time() < self.roundabout_hug_end:
+            # 1. Detect WHITE lines specifically
+            rospy.loginfo("Roundabout Mode: Looking for WHITE lines only.")
+            lower_white = np.array([0, 0, 200])
+            upper_white = np.array([180, 50, 255])
+            mask = cv2.inRange(hsv, lower_white, upper_white)
             
-            # Calculate steering error (distance from image center)
-
-            error = cx - w / 2
+            # 2. ROI: Focus ONLY on the bottom-left quadrant
+            # This prevents picking up the "inner" circle line on the right
+            mask[0:search_top, :] = 0
+            mask[:, int(w/2):w] = 0 # Black out the right half of the screen
             
-            # P-Controller Logic
-            if self.redline_detected and rospy.get_time() < self.red_line_suppression_end:
-                move.linear.x = 0.8  # Increased speed for cautious red line recovery
-            else:
-                move.linear.x = 0.5  # Constant forward velocity
-            move.angular.z = -float(error) / 65  # Proportional steering
+            target_center = w / 4 # We want the line to stay in the center of our left-view
+            p_gain = 50 # You might need more sensitivity for single lines
         else:
-            # If the road is lost, rotate slowly to find it
-            move.linear.x = 0
-            move.angular.z = 0.3
+            # 1. Detect GREY road mass
+            rospy.loginfo("Normal Mode: Looking for GREY road mass.")
+            lower_grey = np.array([0, 0, 50]) 
+            upper_grey = np.array([180, 50, 200])
+            mask = cv2.inRange(hsv, lower_grey, upper_grey)
+            mask[0:search_top, 0:w] = 0
+            
+            target_center = w / 2 # Center of the road
+            p_gain = 65
+
+        # 3. PID Calculation
+        moments = cv2.moments(mask)
+        if moments['m00'] > 0:
+            cx = int(moments['m10'] / moments['m00'])
+            error = cx - target_center
+            
+            # Linear speed logic
+            if self.redline_detected and rospy.get_time() < self.red_line_suppression_end:
+                move.linear.x = 0.8
+                move.angular.z = -float(error) / p_gain
+            elif self.signcount == 3 and rospy.get_time() > self.roundabout_hug_entry and rospy.get_time() < self.roundabout_hug_end:
+                move.linear.x = 0.8
+                move.angular.z = -float(error) / 60
+            else:
+                move.linear.x = 0.5
+                move.angular.z = -float(error) / p_gain
+
+        else:
+            # Search behavior
+            move.linear.x = 0.05
+            move.angular.z = 1
 
         # Inside the RoadFollower callback
         # Define Red HSV range (captures both ends of the hue spectrum)
@@ -171,6 +187,26 @@ class RoadFollower:
                 
                 # 3. EXIT the callback immediately so we don't publish the PID move command below
                 return 
+        
+        lower_magenta = np.array([140, 100, 100])
+        upper_magenta = np.array([160, 255, 255])
+        
+        # Define Magenta HSV range (captures both ends of the hue spectrum)
+        magenta_mask = cv2.inRange(hsv, lower_magenta, upper_magenta)
+
+        # Look specifically at the bottom 40% of the screen
+        if cv2.countNonZero(magenta_mask[int(0.8*h):, :]) > 1000:
+                rospy.loginfo("Magenta line detected! Moving to dirtroad")
+                
+                # 1. STOP the robot immediately to avoid collision penalties (-5pts)
+                self.pub_cmd.publish(Twist())
+                
+                # 2. Deactivate this node locally
+                self.active = False
+                
+                # 3. Trigger the next node (State 2 = Motion Tracking)
+                self.pub_state.publish(3) 
+                return
 
         # If we didn't switch states, publish the normal PID driving command
         self.pub_cmd.publish(move)
