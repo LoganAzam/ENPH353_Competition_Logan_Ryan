@@ -36,6 +36,7 @@ def callback_state(data):
             filename = os.path.join("saved_images", f"image_{count:03d}.png")
             cv2.imwrite(filename, last_img.copy())
             print("IMG Saved") # DEBUG
+            rospy.sleep(1) # Give time for the image to save before changing state
 
         pub_state.publish(last_state)
     else:

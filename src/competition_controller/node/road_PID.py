@@ -29,6 +29,9 @@ class RoadFollower:
         self.state_sub = rospy.Subscriber('/state_changer', Int32, self.state_callback, queue_size=1)
 
         self.redline_detected = False
+        self.blue_init = True
+        self.roundabout = False
+        self.signcount = 0
 
         # Mandatory 1-second delay for ROS Master registration 
         rospy.sleep(1)
@@ -44,6 +47,7 @@ class RoadFollower:
                 rospy.loginfo("road_PID node activated.")
             self.active = True
             self.red_line_suppression_end = rospy.get_time() + 3.0
+            self.blue_pix_suppression_end = rospy.get_time() + 2.0
         else:
             if self.active:
                 rospy.loginfo("road_PID node deactivated.")
@@ -92,6 +96,7 @@ class RoadFollower:
             cx = int(moments['m10'] / moments['m00'])
             
             # Calculate steering error (distance from image center)
+
             error = cx - w / 2
             
             # P-Controller Logic
@@ -127,9 +132,9 @@ class RoadFollower:
                 return
 
         # 1. Define the Blue HSV range
-        # Hue: 100-130 (Blue), Saturation: 150-255 (Vibrant), Value: 50-255 (Brightness)
-        lower_blue = np.array([100, 150, 50])
-        upper_blue = np.array([130, 255, 255])
+        # Hue: 100-140 (Blue), Saturation: 120-255 (Vibrant), Value: 30-255 (Brightness)
+        lower_blue = np.array([100, 120, 30])
+        upper_blue = np.array([140, 255, 255])
 
         # 2. Create the mask
         blue_mask = cv2.inRange(hsv, lower_blue, upper_blue)
@@ -137,17 +142,38 @@ class RoadFollower:
         # 3. Define the ROI (Bottom Half)
         h, w, _ = cv_image.shape
         # Slicing from h/2 to the end of the height
-        blue_bottom_half = blue_mask[int(h/2):, :]
+        if self.signcount == 2:
+            blue_bottom_half = blue_mask[int(h/2):, 0:int(2*w/3)]
+        else:
+            blue_bottom_half = blue_mask[int(h/2):, :]
 
         # 4. Count the non-zero (white) pixels
         blue_count = cv2.countNonZero(blue_bottom_half)
 
-        # Debugging log
-        if blue_count > 3500:
-            #rospy.loginfo(f"Blue detected! Pixel count: {blue_count}")
-            self.pub_cmd.publish(Twist())
-            self.active = False
-            self.pub_state.publish(3)
+        # 1. Logic Check: Are we allowed to look for blue? 
+        # (Either it's the first sign OR the suppression timer has passed)
+        if self.blue_init or rospy.get_time() > self.blue_pix_suppression_end:
+            
+            # 2. Threshold Check: Is there actually a sign in front of us?
+            if blue_count > 3500:
+                rospy.loginfo(f"Blue Sign Confirmed! Switching to Plate Sweep. Count: {blue_count}")
+                self.redline_detected = False # Reset red line flag for next time
+                self.signcount += 1
+                # STOP the robot
+                self.pub_cmd.publish(Twist())
+                
+                # Deactivate this node
+                self.active = False
+                self.blue_init = False # The "First time" pass is now used up
+                
+                # Switch the global state to Plate Sweep (State 0)
+                self.pub_state.publish(0)
+                
+                # 3. EXIT the callback immediately so we don't publish the PID move command below
+                return 
+
+        # If we didn't switch states, publish the normal PID driving command
+        self.pub_cmd.publish(move)
 
         # Publish movement command to the simulation
         self.pub_cmd.publish(move)
