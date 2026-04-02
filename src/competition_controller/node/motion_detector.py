@@ -112,8 +112,8 @@ class MotionDetector:
             self.active = False
 
         # Debugging view 
-        cv2.imshow("Motion ROI", roi)
-        cv2.waitKey(1)
+        #cv2.imshow("Motion ROI", roi)
+        #cv2.waitKey(1)
 
 if __name__ == '__main__':
     rospy.init_node('motion_detector')

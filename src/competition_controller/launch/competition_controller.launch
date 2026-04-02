@@ -23,4 +23,10 @@
          name="motion_detector" 
          output="screen">
    </node>
+   <!-- Dirtroad PID launch file -->
+   <node pkg="competition_controller"
+         type="dirtroad_PID.py"
+         name="dirtroad_PID" 
+         output="screen">
+   </node>
 </launch>

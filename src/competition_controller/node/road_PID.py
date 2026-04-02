@@ -81,7 +81,7 @@ class RoadFollower:
         # --- MODE SWITCH: NORMAL VS ROUNDABOUT ---
         if self.signcount == 3 and rospy.get_time() > self.roundabout_hug_entry and rospy.get_time() < self.roundabout_hug_end:
             # 1. Detect WHITE lines specifically
-            rospy.loginfo("Roundabout Mode: Looking for WHITE lines only.")
+            #rospy.loginfo("Roundabout Mode: Looking for WHITE lines only.")
             lower_white = np.array([0, 0, 200])
             upper_white = np.array([180, 50, 255])
             mask = cv2.inRange(hsv, lower_white, upper_white)
@@ -95,7 +95,7 @@ class RoadFollower:
             p_gain = 50 # You might need more sensitivity for single lines
         else:
             # 1. Detect GREY road mass
-            rospy.loginfo("Normal Mode: Looking for GREY road mass.")
+            #rospy.loginfo("Normal Mode: Looking for GREY road mass.")
             lower_grey = np.array([0, 0, 50]) 
             upper_grey = np.array([180, 50, 200])
             mask = cv2.inRange(hsv, lower_grey, upper_grey)
@@ -171,7 +171,7 @@ class RoadFollower:
         if self.blue_init or rospy.get_time() > self.blue_pix_suppression_end:
             
             # 2. Threshold Check: Is there actually a sign in front of us?
-            if blue_count > 3500:
+            if blue_count > 4000:
                 rospy.loginfo(f"Blue Sign Confirmed! Switching to Plate Sweep. Count: {blue_count}")
                 self.redline_detected = False # Reset red line flag for next time
                 self.signcount += 1
