@@ -6,11 +6,11 @@
          output="screen">
    </node>
    <!-- Plate Sweep launch file -->
-   <!-- <node pkg="competition_controller"
+   <node pkg="competition_controller"
          type="plate_sweep.py"
          name="plate_sweep" 
          output="screen">
-   </node> -->
+   </node>
    <!-- Road PID launch file -->
    <node pkg="competition_controller"
          type="road_PID.py"
