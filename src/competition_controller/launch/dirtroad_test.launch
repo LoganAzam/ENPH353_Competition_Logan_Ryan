@@ -1,0 +1,41 @@
+<launch>
+   <!-- Competition launch file -->
+   <!-- <node pkg="competition_controller"
+         type="competition_controller.py"
+         name="controller" 
+         output="screen">
+   </node> -->
+   <!-- Plate Sweep launch file -->
+   <!-- <node pkg="competition_controller"
+         type="plate_sweep.py"
+         name="plate_sweep" 
+         output="screen">
+   </node> -->
+   <!-- Road PID launch file -->
+   <!-- <node pkg="competition_controller"
+         type="road_PID.py"
+         name="road_PID" 
+         output="screen">
+   </node> -->
+   <!-- Motion Detector launch file -->
+   <!-- <node pkg="competition_controller"
+         type="motion_detector.py"
+         name="motion_detector" 
+         output="screen">
+   </node> -->
+   <!-- Dirtroad PID launch file -->
+   <!-- <node pkg="competition_controller"
+         type="dirtroad_PID.py"
+         name="dirtroad_PID" 
+         output="screen">
+   </node> -->
+   <!-- Dirtroad Visualizer launch file -->
+   <node pkg="competition_controller"
+         type="dirtroad_test_img.py"
+         name="dirtroad_test_img" 
+         output="screen">
+   </node>
+
+</launch>
+
+

@@ -20,7 +20,7 @@ class DirtroadFollower:
         self.image_sub = rospy.Subscriber("/B1/rrbot/camera1/image_raw", Image, self.callback, queue_size=3)
         self.state_sub = rospy.Subscriber('/state_changer', Int32, self.state_callback, queue_size=1)
 
-        self.blue_pix_suppression_end = rospy.get_time() + 3.0 # Initialize to current time so it's not active at start
+        
 
         rospy.sleep(1)
     
@@ -30,6 +30,7 @@ class DirtroadFollower:
             if not self.active:
                 rospy.loginfo("dirtroad_PID node activated.")
             self.active = True
+            self.blue_pix_suppression_end = rospy.get_time() + 7.0 # Initialize to current time so it's not active at start
         else:
             if self.active:
                 rospy.loginfo("dirtroad_PID node deactivated.")
@@ -53,8 +54,10 @@ class DirtroadFollower:
         # --- DIRT ROAD MASK ---
         # NOTE: If the dirt road doesn't have a white line, 
         # this white mask will return 0 pixels and the robot will just spin!
-        lower_white = np.array([0, 0, 200])
-        upper_white = np.array([180, 50, 255])
+        # lower_white = np.array([0, 0, 200])
+        # upper_white = np.array([180, 50, 255])
+        lower_white = np.array([25, 0, 174])
+        upper_white = np.array([65, 76, 255])
         mask = cv2.inRange(hsv, lower_white, upper_white)
         cv2.imshow("Dirt Road Mask", mask) # DEBUG: Show the mask to verify it's working
         cv2.waitKey(1)  # Add this line to allow OpenCV to process the window events
@@ -70,15 +73,13 @@ class DirtroadFollower:
         if moments['m00'] > 0:
             cx = int(moments['m10'] / moments['m00'])
             error = cx - target_center
-            move.linear.x = 0.4 # Slower for dirt road curves
+            move.linear.x = 0.6 # Slower for dirt road curves
             move.angular.z = -float(error) / p_gain
         else:
-            # SEARCH BEHAVIOR: If mask is empty, it spins.
-            # This is likely why your robot "stopped" or just spun.
-            move.linear.x = 0.5
+            move.linear.x = 0.3
             move.angular.z = 0.5
 
-        self.pub_cmd.publish(move)
+        #self.pub_cmd.publish(move)
 
         # 1. Define the Blue HSV range
         # Hue: 100-140 (Blue), Saturation: 120-255 (Vibrant), Value: 30-255 (Brightness)
@@ -101,7 +102,7 @@ class DirtroadFollower:
         if rospy.get_time() > self.blue_pix_suppression_end:
             
             # 2. Threshold Check: Is there actually a sign in front of us?
-            if blue_count > 4000:
+            if blue_count > 7000:
                 rospy.loginfo(f"Blue Sign Confirmed! Switching to Plate Sweep. Count: {blue_count}")
                 # STOP the robot
                 self.pub_cmd.publish(Twist())
@@ -110,10 +111,12 @@ class DirtroadFollower:
                 self.active = False
                 
                 # Switch the global state to Plate Sweep (State 0)
-                self.pub_state.publish(0)
+                #self.pub_state.publish(0)
                 
                 # 3. EXIT the callback immediately so we don't publish the PID move command below
                 return 
+            
+        self.pub_cmd.publish(move)
 
 if __name__ == '__main__':
     rospy.init_node('dirtroad_PID_node')
