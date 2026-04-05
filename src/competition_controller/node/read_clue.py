@@ -9,11 +9,12 @@ import numpy as np
 from PIL import Image as PILImage, ImageDraw, ImageFont
 import string
 
-import os
+# import os
 count = 0
 
 # Needs to be global
 pub_score = None
+# pub_view = None
 
 bridge = CvBridge()
 
@@ -102,6 +103,7 @@ def reshapeRectangle(rectangle):
   return corners.reshape(4, 1, 2)
 
 def readClue(cv2Image):
+  # global pub_view
   # HSV Filter to find clueboard
   hsv_image = cv2.cvtColor(cv2Image, cv2.COLOR_BGR2HSV)
   hsv_threshold_img = cv2.inRange(hsv_image, lowerHSV_bound, upperHSV_bound)
@@ -194,19 +196,21 @@ def callback(data):
       submitMessage = "TeamID,Password," + str(clueType) + "," + clueVal
       pub_score.publish(submitMessage)
 
-    if not os.path.exists("saved_images"):
-        os.makedirs("saved_images")
-    global count
-    count += 1
-    filename = os.path.join("saved_images", f"image_{count:03d}.png")
-    cv2.imwrite(filename, cv2Image.copy())
+    # if not os.path.exists("saved_images"):
+    #     os.makedirs("saved_images")
+    # global count
+    # count += 1
+    # filename = os.path.join("saved_images", f"image_{count:03d}.png")
+    # cv2.imwrite(filename, cv2Image.copy())
 
 def main():
     global pub_score
+    # global pub_view
     rospy.init_node('read_clue_node', anonymous=True)
 
     # Initialize publishers and subscribers
     pub_score = rospy.Publisher('/score_tracker', String, queue_size=1)
+    # pub_view = rospy.Publisher('/image_viewer', Image, queue_size=1)
     rospy.Subscriber('/clue_images', Image, callback, queue_size=1)
     rospy.spin()
 
