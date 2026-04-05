@@ -77,8 +77,8 @@ class LakeFollower:
 
         # ROI: Focus on bottom half
         mask[0:int(0.65 * h), :] = 0
-        cv2.imshow("Dirt Road Mask", mask) # DEBUG: Show the mask to verify it's working
-        cv2.waitKey(1)  # Add this line to allow OpenCV to process the window events
+        #cv2.imshow("Dirt Road Mask", mask) # DEBUG: Show the mask to verify it's working
+        #cv2.waitKey(1)  # Add this line to allow OpenCV to process the window events
         target_center = w / 2
 
         p_gain = 50
@@ -113,8 +113,8 @@ class LakeFollower:
 
         # 4. Count the non-zero (white) pixels
         blue_count = cv2.countNonZero(blue_bottom_half)
-        cv2.imshow("Blue Mask", blue_bottom_half) # DEBUG: Show the mask to verify it's working
-        cv2.waitKey(1)  # Add this line to allow OpenCV to process the window events
+        #cv2.imshow("Blue Mask", blue_bottom_half) # DEBUG: Show the mask to verify it's working
+        #cv2.waitKey(1)  # Add this line to allow OpenCV to process the window events
 
         # 1. Logic Check: Are we allowed to look for blue? 
         # (Either it's the first sign OR the suppression timer has passed)

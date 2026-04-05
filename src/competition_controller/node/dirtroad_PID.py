@@ -84,7 +84,7 @@ class DirtroadFollower:
             mask[:, int(w/2):w] = 0 # Hugging left
             target_center = w / 4
         else:
-            rospy.loginfo("Sign found, hugging right!")
+            #rospy.loginfo("Sign found, hugging right!")
             mask[:, 0:int(w/2)] = 0 # Hugging right
             target_center = int(3*(w / 4))
 
@@ -97,7 +97,7 @@ class DirtroadFollower:
             move.linear.x = 0.6 # Slower for dirt road curves
             move.angular.z = -float(error) / p_gain
         elif self.signfound and not self.lakeFound: # If we've found the sign but not the lake, we want to turn sharply right to find the lake faster
-            rospy.loginfo("Lakefind")
+            #rospy.loginfo("Lakefind")
             move.linear.x = 0.35
             move.angular.z = -0.75
         elif moments['m00'] > 0 and self.lakeFound: # Only do PID if we haven't found the sign yet
