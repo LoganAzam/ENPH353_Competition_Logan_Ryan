@@ -28,9 +28,15 @@ class DirtroadVisualizer:
         # 1. Setup Dimensions
         h, w, _ = cv_image.shape
         
-        # Define your specific ROI boundaries
-        y_start, y_end = int(h/2), int(4*h/5)
-        x_start, x_end = int(w/2), int(w)
+        # --- UPDATED ROI BOUNDARIES TO MATCH YOUR LINE ---
+        # Top: shifted up slightly by h/16
+        y_start = int(h/2) - int(h/16) 
+        # Bottom: 80% down the screen
+        y_end = int(4*h/5)
+        # Left: Vertical centerline
+        x_start = int(w/2)
+        # Right: Right edge
+        x_end = int(w)
 
         # 2. Convert to HSV
         hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
@@ -41,27 +47,25 @@ class DirtroadVisualizer:
         blue_mask_full = cv2.inRange(hsv, lower_blue, upper_blue)
 
         # 4. Apply the restricted ROI
-        # We create a black image of the same size and only keep the ROI part
+        # Create blank mask and copy only the ROI pixels
         mask_roi_only = np.zeros_like(blue_mask_full)
         mask_roi_only[y_start:y_end, x_start:x_end] = blue_mask_full[y_start:y_end, x_start:x_end]
 
-        # 5. Count pixels ONLY in that restricted region
+        # 5. Count pixels ONLY in that specific window
         pixel_count = cv2.countNonZero(mask_roi_only)
 
         # 6. Visual Feedback
-        # Draw a bounding box around the ROI we are actually checking
+        # The green box now shows exactly what your 'blue_bottom_half' slice covers
         cv2.rectangle(cv_image, (x_start, y_start), (x_end, y_end), (0, 255, 0), 2)
         
-        # Display the pixel count
-        cv2.putText(cv_image, f"Blue Pixels in ROI: {pixel_count}", 
-                    (10, h - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        cv2.putText(cv_image, f"Pixels in Slice: {pixel_count}", 
+                    (x_start + 5, y_start - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
         # 7. Visualization
-        # Convert mask to BGR so we can stack it
         mask_bgr = cv2.cvtColor(mask_roi_only, cv2.COLOR_GRAY2BGR)
         stacked_view = np.hstack((cv_image, mask_bgr))
 
-        cv2.imshow("Blue Sign Debug (Box shows ROI)", stacked_view)
+        cv2.imshow("Blue ROI Match Test", stacked_view)
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
             rospy.signal_shutdown("User requested quit")

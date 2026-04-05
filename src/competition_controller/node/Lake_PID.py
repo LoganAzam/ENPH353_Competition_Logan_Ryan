@@ -129,8 +129,8 @@ class LakeFollower:
                 # Deactivate this node
                 self.active = False
                 
-                # Switch the global state to Plate Sweep (State 0)
-                self.pub_state.publish(0)
+                # Switch the global state to Dirtroad (State 3)
+                self.pub_state.publish(3)
                 self.signfound = True
 
                 # 3. EXIT the callback immediately so we don't publish the PID move command below

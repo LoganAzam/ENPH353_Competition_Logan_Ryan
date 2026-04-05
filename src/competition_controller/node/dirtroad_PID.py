@@ -22,6 +22,7 @@ class DirtroadFollower:
 
         self.signfound = False
         self.lakeFound = False
+        self.turnkey = False
 
         rospy.sleep(1)
     
@@ -32,6 +33,7 @@ class DirtroadFollower:
                 rospy.loginfo("dirtroad_PID node activated.")
             self.active = True
             self.blue_pix_suppression_end = rospy.get_time() + 7.0 # Initialize to current time so it's not active at start
+            self.blue_pix_suppression_lake = rospy.get_time() + 1.5 # Longer suppression for lake since the blue pixels there are more likely to cause false positives
         else:
             if self.active:
                 rospy.loginfo("dirtroad_PID node deactivated.")
@@ -51,6 +53,16 @@ class DirtroadFollower:
         h, w, _ = cv_image.shape
         search_top = int(0.65 * h)
         move = Twist()
+
+        if self.turnkey:
+            turn_time = rospy.get_time() + 1.0 # Time to turn right and find the lake faster, since the sign is on the left side of the road
+            while rospy.get_time() < turn_time:
+                move.angular.z = -0.75
+                self.pub_cmd.publish(move)
+                rospy.loginfo("Turning right to equalize")
+            self.pub_cmd.publish(Twist())
+            self.turnkey = False
+            return
 
         # --- DIRT ROAD MASK ---
         # NOTE: If the dirt road doesn't have a white line, 
@@ -97,7 +109,7 @@ class DirtroadFollower:
             move.linear.x = 0.6 # Slower for dirt road curves
             move.angular.z = -float(error) / p_gain
         elif self.signfound and not self.lakeFound: # If we've found the sign but not the lake, we want to turn sharply right to find the lake faster
-            #rospy.loginfo("Lakefind")
+            rospy.loginfo("Lakefind")
             move.linear.x = 0.35
             move.angular.z = -0.75
         elif moments['m00'] > 0 and self.lakeFound: # Only do PID if we haven't found the sign yet
@@ -137,17 +149,37 @@ class DirtroadFollower:
                 rospy.loginfo(f"Blue Sign Confirmed! Switching to Plate Sweep. Count: {blue_count}")
                 # STOP the robot
                 self.pub_cmd.publish(Twist())
-                
+                turn_time = rospy.get_time() + 1.0 # Time to turn right and find the lake faster, since the sign is on the left side of the road
+                move.linear.x = 0.0
+                move.angular.z = 0.75
+                while rospy.get_time() < turn_time:
+                    self.pub_cmd.publish(move)
+                self.pub_cmd.publish(Twist())
+
                 # Deactivate this node
                 self.active = False
                 
                 # Switch the global state to Plate Sweep (State 0)
                 self.pub_state.publish(0)
                 self.signfound = True
+                self.turnkey = True
+
 
                 # 3. EXIT the callback immediately so we don't publish the PID move command below
                 return 
             
+        if self.lakeFound and blue_count > 9000 and rospy.get_time() > self.blue_pix_suppression_lake:
+            rospy.loginfo(f"Blue Sign Confirmed! Switching to Dirtroad. Count: {blue_count}")
+            # STOP the robot
+            self.pub_cmd.publish(Twist())
+
+            # Deactivate this node
+            self.active = False
+
+            # Switch the global state to sweep
+            self.pub_state.publish(0)
+            return
+
         lower_magenta = np.array([140, 100, 100])
         upper_magenta = np.array([160, 255, 255])
         
