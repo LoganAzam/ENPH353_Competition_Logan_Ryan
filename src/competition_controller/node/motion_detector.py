@@ -51,7 +51,7 @@ class MotionDetector:
             rospy.loginfo("MotionDetector activated.")
             self.active_count += 1
             if self.active_count == 1:
-                self.timeout = 90
+                self.timeout = 150
                 self.min_pixels = 1000
             else:
                 self.timeout = 750
