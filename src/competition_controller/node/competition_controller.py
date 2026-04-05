@@ -20,7 +20,7 @@ def master_controller():
     # 4. Start the Competition Timer
     # Format: 'TeamName,password,0,NA'
     # This registers your team and starts the 4-minute clock
-    start_msg = "looker,1111,0,NA" 
+    start_msg = "TeamID,Password,0,NA" 
     pub_score.publish(start_msg)
     rospy.loginfo("Timer started for team: looker")
 

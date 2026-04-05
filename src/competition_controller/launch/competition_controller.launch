@@ -11,6 +11,12 @@
          name="plate_sweep" 
          output="screen">
    </node>
+   <!-- Read Clue launch file -->
+   <node pkg="competition_controller"
+         type="read_clue.py"
+         name="read_clue" 
+         output="screen">
+   </node>
    <!-- Road PID launch file -->
    <node pkg="competition_controller"
          type="road_PID.py"
