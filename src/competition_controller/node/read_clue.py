@@ -1,0 +1,214 @@
+#! /usr/bin/env python3
+
+import rospy
+import cv2
+from cv_bridge import CvBridge
+from sensor_msgs.msg import Image
+from std_msgs.msg import String
+import numpy as np
+from PIL import Image as PILImage, ImageDraw, ImageFont
+import string
+
+import os
+count = 0
+
+# Needs to be global
+pub_score = None
+
+bridge = CvBridge()
+
+# Parameters
+# HSV Filter to find clueboard
+lowerHSV_bound = np.array([100, 120, 30])
+upperHSV_bound = np.array([140, 255, 255])
+# Find clueboard Border
+# Find Inner Clueboard Border Points
+# Compute Homography
+boardWidth = 130
+boardHeight = 76
+templatePoints = np.array([[[0, 0]],
+                               [[boardWidth, 0]],
+                               [[boardWidth-1, boardHeight-1]],
+                               [[0, boardHeight-1]]]
+                              , dtype=np.float32)
+# Cut out Clue Type
+clue_type_x_min = 50
+clue_type_x_max = 120
+clue_type_y_min = 5
+clue_type_y_max = 25
+lowerHSV_clue_type_bound = np.array([100, 60, 0])
+upperHSV_clue_type_bound = np.array([140, 255, 255])
+# Convolve with Clue Type Kernels
+kernelW = 70
+kernelH = 20
+textX = 6
+textY = 1
+fontSize = 16
+type_subtract_value = 50
+# Cut out Clue Value
+clue_val_x_min = 6
+clue_val_x_max = 123
+clue_val_y_min = 49
+clue_val_y_max = 63
+# Break into Characters
+# Convolve with Clue Value Kernels
+char_subtract_value = 50
+
+# Create Kernels for Clue Type
+monospace = ImageFont.truetype(font="/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf", size=fontSize)
+kernelArray = []
+clueTypeArray = ["SIZE", "VICTIM", "CRIME", "TIME", "PLACE", "MOTIVE", "WEAPON", "BANDIT"]
+for clueType in clueTypeArray:
+  kernel_PIL = PILImage.fromarray(np.zeros([kernelH, kernelW], dtype=np.uint8))
+  draw = ImageDraw.Draw(kernel_PIL)
+  draw.text((textX, textY), clueType, fill=255, font=monospace, stroke_width=1)
+  typeKernel = np.array(kernel_PIL).astype(np.float32) / 255.0
+  typeKernel[typeKernel == 0] = -1.0
+  kernelArray.append(typeKernel)
+
+# Create Kernels for Clue Value
+charH = 70
+charW = 50
+fontSize = 80
+kernelNegVal = -0.5
+monospace = ImageFont.truetype(font="/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf", size=fontSize)
+characters = string.ascii_uppercase + string.digits + ' '
+kernelCharArray = []
+kernelCentroidArray = []
+for c in characters:
+  char_PIL = PILImage.fromarray(np.zeros([charH, charW], dtype=np.uint8))
+  draw = ImageDraw.Draw(char_PIL)
+  draw.text((0, -8), c, fill=255, font=monospace, stroke_width=1)
+  char_np = np.array(char_PIL, dtype=np.float32)
+  charKernel = char_np / 255.0
+  if c != ' ':
+    k_y, k_x = np.array(np.nonzero(charKernel)).mean(axis=1)
+    kernelCentroidArray.append(np.array([k_x, k_y]))
+  else:
+    kernelCentroidArray.append(np.array([0, 0]))
+  charKernel[charKernel == 0] = kernelNegVal
+  kernelCharArray.append(charKernel)
+
+# Reorder the points of a rectangle
+def reshapeRectangle(rectangle):
+  rectanglePoints = rectangle.reshape(-1, 2)
+  corners = np.zeros((4,2), dtype=rectanglePoints.dtype)
+  s = rectanglePoints.sum(axis=1)
+  diff = np.diff(rectanglePoints, axis=1)
+  corners[0] = rectanglePoints[np.argmin(s)]
+  corners[2] = rectanglePoints[np.argmax(s)]
+  corners[1] = rectanglePoints[np.argmin(diff)]
+  corners[3] = rectanglePoints[np.argmax(diff)]
+  return corners.reshape(4, 1, 2)
+
+def readClue(cv2Image):
+  # HSV Filter to find clueboard
+  hsv_image = cv2.cvtColor(cv2Image, cv2.COLOR_BGR2HSV)
+  hsv_threshold_img = cv2.inRange(hsv_image, lowerHSV_bound, upperHSV_bound)
+
+  # Find clueboard Border
+  num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(hsv_threshold_img)
+  max_area = 0
+  max_area_label = 0
+  if num_labels <= 1:
+    return None, None
+  for i in range(1, num_labels):
+    if stats[i, 4] > max_area:
+      max_area = stats[i, 4]
+      max_area_label = i
+  largest_object_mask = np.uint8(labels == max_area_label) * 255
+
+  # Find Inner Clueboard Border Points
+  contours, hierarchy = cv2.findContours(largest_object_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+  if len(contours) < 2:
+    return None, None
+  perimeter = cv2.arcLength(contours[1], True)
+  rectangle = cv2.approxPolyDP(contours[1], 0.02 * perimeter, True)
+  rectangleCorners = reshapeRectangle(rectangle)
+
+  # Compute Homography
+  homographyMatrix, homographyMask = cv2.findHomography(rectangleCorners, templatePoints, cv2.RANSAC)
+  clueboard_img = cv2.warpPerspective(cv2Image, homographyMatrix, (boardWidth, boardHeight))
+
+  # Cut out Clue Type
+  clue_type_img = clueboard_img[clue_type_y_min:clue_type_y_max, clue_type_x_min:clue_type_x_max]
+  clue_type_hsv = cv2.cvtColor(clue_type_img, cv2.COLOR_BGR2HSV)
+  clue_type_gray = cv2.inRange(clue_type_hsv, lowerHSV_clue_type_bound, upperHSV_clue_type_bound)
+
+  # Convolve with Clue Type Kernels
+  best_clue_type_match = 0
+  best_clue_type_index = 0
+  for i, kernel in enumerate(kernelArray):
+    conv_val = np.sum((np.array(clue_type_gray, dtype=np.float32) - type_subtract_value) * np.array(kernel, dtype=np.float32))
+    if conv_val > best_clue_type_match:
+      best_clue_type_match = conv_val
+      best_clue_type_index = i
+  clueType = clueTypeArray[best_clue_type_index]
+
+  # Cut out Clue Value
+  clue_val_full_img = clueboard_img[clue_val_y_min:clue_val_y_max, clue_val_x_min:clue_val_x_max]
+  clue_val_gray = cv2.cvtColor(clue_val_full_img, cv2.COLOR_BGR2GRAY)
+  clue_val_normalized = 255 - cv2.normalize(clue_val_gray, None, 0, 255, cv2.NORM_MINMAX)
+  clue_val_resized = cv2.resize(clue_val_normalized, (charW*12, charH))
+  _, clue_val_img = cv2.threshold(clue_val_resized, 90, 255, cv2.THRESH_BINARY)
+
+  # Get the start of the message
+  coords = np.argwhere(clue_type_gray != 0)
+  if coords.size != 0:
+    row, col = coords[np.argmin(coords[:, 1])]
+    shift_distance = col - clue_val_x_min + 1
+    if shift_distance > 0:
+      clue_val_img[:, :-shift_distance] = clue_val_img[:, shift_distance:]
+      clue_val_img[:, -shift_distance:] = 0
+
+  # Break into Characters
+  messageArray = []
+  for i in range(12):
+    nextCharacter = clue_val_img[:, charW*i:charW*(i+1)]
+    messageArray.append(nextCharacter)
+
+  # Convolve with Clue Value Kernels
+  clueVal = ''
+  for char_img in messageArray:
+    best_clue_val = 0
+    best_clue_index = 0
+    for i, charKernel in enumerate(kernelCharArray):
+      if np.nonzero(char_img)[0].size == 0:
+        c_y, c_x = 0, 0
+      else:
+        c_y, c_x = np.array(np.nonzero(char_img)).mean(axis=1)
+      shiftMatrix = np.float32([[1, 0, kernelCentroidArray[i][0] - c_x], [0, 1, kernelCentroidArray[i][1] - c_y]])
+      aligned_char_img = cv2.warpAffine(char_img, shiftMatrix, (charW, charH))
+      conv_val = np.sum((np.array(aligned_char_img, dtype=np.float32) - char_subtract_value) * np.array(charKernel, dtype=np.float32))
+      if conv_val > best_clue_val:
+        best_clue_val = conv_val
+        best_clue_index = i
+    clueVal += characters[best_clue_index]
+
+  return (best_clue_type_index + 1), clueVal
+
+def callback(data):
+    cv2Image = bridge.imgmsg_to_cv2(data, "bgr8")
+    clueType, clueVal = readClue(cv2Image)
+    if (clueType is not None) and (clueVal is not None):
+      submitMessage = "TeamID,Password," + str(clueType) + "," + clueVal
+      pub_score.publish(submitMessage)
+
+    if not os.path.exists("saved_images"):
+        os.makedirs("saved_images")
+    global count
+    count += 1
+    filename = os.path.join("saved_images", f"image_{count:03d}.png")
+    cv2.imwrite(filename, cv2Image.copy())
+
+def main():
+    global pub_score
+    rospy.init_node('read_clue_node', anonymous=True)
+
+    # Initialize publishers and subscribers
+    pub_score = rospy.Publisher('/score_tracker', String, queue_size=1)
+    rospy.Subscriber('/clue_images', Image, callback, queue_size=1)
+    rospy.spin()
+
+if __name__ == '__main__':
+    main()
