@@ -24,6 +24,7 @@ class DirtroadFollower:
         self.lakeFound = False
         self.turnkey = False
         self.init_line = True
+        self.trans = False
 
         rospy.sleep(1)
     
@@ -51,6 +52,21 @@ class DirtroadFollower:
             rospy.logerr(f"CV Bridge Error: {e}")
             return
 
+        if self.trans:
+            rospy.loginfo("Moving to roadless")
+
+                # 1. STOP the robot immediately to avoid collision penalties (-5pts)
+            self.pub_cmd.publish(Twist())
+                
+                # 2. Deactivate this node locally
+            self.active = False
+
+                # 3. Trigger the next node (State 5 = Roadless)
+            self.pub_state.publish(5) 
+            self.trans = False
+            return
+
+
         hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
         h, w, _ = cv_image.shape
         search_top = int(0.65 * h)
@@ -61,7 +77,7 @@ class DirtroadFollower:
             while rospy.get_time() < turn_time:
                 move.angular.z = -0.75
                 self.pub_cmd.publish(move)
-                rospy.loginfo("Turning right to equalize")
+                #rospy.loginfo("Turning right to equalize")
             self.pub_cmd.publish(Twist())
             self.turnkey = False
             return
@@ -195,7 +211,7 @@ class DirtroadFollower:
 
         # Look specifically at the bottom 40% of the screen
         if cv2.countNonZero(magenta_mask[int(0.8*h):, :]) > 1000 and self.signfound: # The signfound condition is to prevent false positives from things like pink flowers on the side of the road
-                rospy.loginfo("Magenta line detected! Moving to roadless")
+                rospy.loginfo("Magenta line detected! Moving to motion tacking")
                 
                 # 1. STOP the robot immediately to avoid collision penalties (-5pts)
                 self.pub_cmd.publish(Twist())
@@ -204,7 +220,8 @@ class DirtroadFollower:
                 self.active = False
                 
                 # 3. Trigger the next node (State 2 = Motion Tracking)
-                self.pub_state.publish(5) 
+                self.pub_state.publish(2) 
+                self.trans = True
                 return
 
         self.pub_cmd.publish(move)
