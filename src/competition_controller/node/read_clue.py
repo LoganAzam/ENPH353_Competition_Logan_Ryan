@@ -6,7 +6,7 @@ from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image as PILImage, ImageDraw, ImageFont
 import string
 
 # Needs to be global
@@ -55,7 +55,7 @@ monospace = ImageFont.truetype(font="/usr/share/fonts/truetype/liberation/Libera
 kernelArray = []
 clueTypeArray = ["SIZE", "VICTIM", "CRIME", "TIME", "PLACE", "MOTIVE", "WEAPON", "BANDIT"]
 for clueType in clueTypeArray:
-  kernel_PIL = Image.fromarray(np.zeros([kernelH, kernelW], dtype=np.uint8))
+  kernel_PIL = PILImage.fromarray(np.zeros([kernelH, kernelW], dtype=np.uint8))
   draw = ImageDraw.Draw(kernel_PIL)
   draw.text((textX, textY), clueType, fill=255, font=monospace, stroke_width=1)
   kernelArray.append(np.array(kernel_PIL).astype(np.float32) / 255.0)
@@ -70,7 +70,7 @@ characters = string.ascii_uppercase + string.digits + ' '
 kernelCharArray = []
 kernelCentroidArray = []
 for c in characters:
-  char_PIL = Image.fromarray(np.zeros([charH, charW], dtype=np.uint8))
+  char_PIL = PILImage.fromarray(np.zeros([charH, charW], dtype=np.uint8))
   draw = ImageDraw.Draw(char_PIL)
   draw.text((0, -8), c, fill=255, font=monospace, stroke_width=1)
   char_np = np.array(char_PIL, dtype=np.float32)
