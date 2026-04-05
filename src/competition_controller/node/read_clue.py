@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image as PILImage, ImageDraw, ImageFont
 import string
 
-# import os
+import os
 count = 0
 
 # Needs to be global
@@ -196,12 +196,12 @@ def callback(data):
       submitMessage = "TeamID,Password," + str(clueType) + "," + clueVal
       pub_score.publish(submitMessage)
 
-    # if not os.path.exists("saved_images"):
-    #     os.makedirs("saved_images")
-    # global count
-    # count += 1
-    # filename = os.path.join("saved_images", f"image_{count:03d}.png")
-    # cv2.imwrite(filename, cv2Image.copy())
+    if not os.path.exists("saved_images"):
+        os.makedirs("saved_images")
+    global count
+    count += 1
+    filename = os.path.join("saved_images", f"image_{count:03d}.png")
+    cv2.imwrite(filename, cv2Image.copy())
 
 def main():
     global pub_score
