@@ -9,6 +9,9 @@ import numpy as np
 from PIL import Image as PILImage, ImageDraw, ImageFont
 import string
 
+import os
+count = 0
+
 # Needs to be global
 pub_score = None
 
@@ -41,6 +44,7 @@ kernelH = 20
 textX = 6
 textY = 1
 fontSize = 16
+type_subtract_value = 30
 # Cut out Clue Value
 clue_val_x_min = 6
 clue_val_x_max = 123
@@ -58,7 +62,9 @@ for clueType in clueTypeArray:
   kernel_PIL = PILImage.fromarray(np.zeros([kernelH, kernelW], dtype=np.uint8))
   draw = ImageDraw.Draw(kernel_PIL)
   draw.text((textX, textY), clueType, fill=255, font=monospace, stroke_width=1)
-  kernelArray.append(np.array(kernel_PIL).astype(np.float32) / 255.0)
+  typeKernel = np.array(kernel_PIL).astype(np.float32) / 255.0
+  typeKernel[typeKernel == 0] = -1.0
+  kernelArray.append(typeKernel)
 
 # Create Kernels for Clue Value
 charH = 70
@@ -122,8 +128,6 @@ def readClue(cv2Image):
 
   # Compute Homography
   homographyMatrix, homographyMask = cv2.findHomography(rectangleCorners, templatePoints, cv2.RANSAC)
-  if homographyMatrix is None:
-    return None, None
   clueboard_img = cv2.warpPerspective(cv2Image, homographyMatrix, (boardWidth, boardHeight))
 
   # Cut out Clue Type
@@ -135,7 +139,7 @@ def readClue(cv2Image):
   best_clue_type_match = 0
   best_clue_type_index = 0
   for i, kernel in enumerate(kernelArray):
-    conv_val = np.sum(np.array(clue_type_gray, dtype=np.float32) * np.array(kernel, dtype=np.float32))
+    conv_val = np.sum((np.array(clue_type_gray, dtype=np.float32) - type_subtract_value) * np.array(kernel, dtype=np.float32))
     if conv_val > best_clue_type_match:
       best_clue_type_match = conv_val
       best_clue_type_index = i
@@ -147,6 +151,15 @@ def readClue(cv2Image):
   clue_val_normalized = 255 - cv2.normalize(clue_val_gray, None, 0, 255, cv2.NORM_MINMAX)
   clue_val_resized = cv2.resize(clue_val_normalized, (charW*12, charH))
   _, clue_val_img = cv2.threshold(clue_val_resized, 90, 255, cv2.THRESH_BINARY)
+
+  # Get the start of the message
+  coords = np.argwhere(clue_type_gray != 0)
+  if coords.size != 0:
+    row, col = coords[np.argmin(coords[:, 1])]
+    shift_distance = col - clue_val_x_min + 1
+    if shift_distance > 0:
+      clue_val_img[:, :-shift_distance] = clue_val_img[:, shift_distance:]
+      clue_val_img[:, -shift_distance:] = 0
 
   # Break into Characters
   messageArray = []
@@ -180,6 +193,13 @@ def callback(data):
     if (clueType is not None) and (clueVal is not None):
       submitMessage = "TeamID,Password," + str(clueType) + "," + clueVal
       pub_score.publish(submitMessage)
+
+    if not os.path.exists("saved_images"):
+        os.makedirs("saved_images")
+    global count
+    count += 1
+    filename = os.path.join("saved_images", f"image_{count:03d}.png")
+    cv2.imwrite(filename, cv2Image.copy())
 
 def main():
     global pub_score
