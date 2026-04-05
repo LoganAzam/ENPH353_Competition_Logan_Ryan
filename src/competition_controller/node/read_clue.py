@@ -9,8 +9,8 @@ import numpy as np
 from PIL import Image as PILImage, ImageDraw, ImageFont
 import string
 
-import os
-count = 0
+# import os
+# count = 0
 
 # Needs to be global
 pub_score = None
@@ -20,7 +20,7 @@ bridge = CvBridge()
 
 # Parameters
 # HSV Filter to find clueboard
-lowerHSV_bound = np.array([100, 120, 30])
+lowerHSV_bound = np.array([100, 125, 30])
 upperHSV_bound = np.array([140, 255, 255])
 # Find clueboard Border
 # Find Inner Clueboard Border Points
@@ -79,7 +79,7 @@ kernelCentroidArray = []
 for c in characters:
   char_PIL = PILImage.fromarray(np.zeros([charH, charW], dtype=np.uint8))
   draw = ImageDraw.Draw(char_PIL)
-  draw.text((0, -8), c, fill=255, font=monospace, stroke_width=0)
+  draw.text((0, -8), c, fill=255, font=monospace, stroke_width=1)
   char_np = np.array(char_PIL, dtype=np.float32)
   charKernel = char_np / 255.0
   if c != ' ':
@@ -103,7 +103,6 @@ def reshapeRectangle(rectangle):
   return corners.reshape(4, 1, 2)
 
 def readClue(cv2Image):
-  # global pub_view
   # HSV Filter to find clueboard
   hsv_image = cv2.cvtColor(cv2Image, cv2.COLOR_BGR2HSV)
   hsv_threshold_img = cv2.inRange(hsv_image, lowerHSV_bound, upperHSV_bound)
@@ -124,8 +123,10 @@ def readClue(cv2Image):
   contours, hierarchy = cv2.findContours(largest_object_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
   if len(contours) < 2:
     return None, None
-  perimeter = cv2.arcLength(contours[1], True)
-  rectangle = cv2.approxPolyDP(contours[1], 0.02 * perimeter, True)
+  sorted_contours = sorted(contours, key=cv2.contourArea, reverse=True)
+  inside_contour = sorted_contours[1]
+  perimeter = cv2.arcLength(inside_contour, True)
+  rectangle = cv2.approxPolyDP(inside_contour, 0.02 * perimeter, True)
   rectangleCorners = reshapeRectangle(rectangle)
 
   # Compute Homography
@@ -196,12 +197,12 @@ def callback(data):
       submitMessage = "TeamID,Password," + str(clueType) + "," + clueVal
       pub_score.publish(submitMessage)
 
-    if not os.path.exists("saved_images"):
-        os.makedirs("saved_images")
-    global count
-    count += 1
-    filename = os.path.join("saved_images", f"image_{count:03d}.png")
-    cv2.imwrite(filename, cv2Image.copy())
+    # if not os.path.exists("saved_images"):
+    #     os.makedirs("saved_images")
+    # global count
+    # count += 1
+    # filename = os.path.join("saved_images", f"image_{count:03d}.png")
+    # cv2.imwrite(filename, cv2Image.copy())
 
 def main():
     global pub_score
