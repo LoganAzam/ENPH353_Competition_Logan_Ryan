@@ -45,11 +45,12 @@ def callback_state(data):
 
 def main():
     global pub_state
+    global pub_clue
     rospy.init_node('plate_sweep_node', anonymous=True)
 
     # Initialize publishers and subscribers
     pub_state = rospy.Publisher('/state_changer', Int32, queue_size=1, latch=True)
-    pub_clue = rospy.Publisher('/clue_images', Image)
+    pub_clue = rospy.Publisher('/clue_images', Image, queue_size=1)
     rospy.Subscriber('/B1/rrbot/camera1/image_raw', Image, callback_img, queue_size=1)
     rospy.Subscriber('/state_changer', Int32, callback_state)
     rospy.spin()

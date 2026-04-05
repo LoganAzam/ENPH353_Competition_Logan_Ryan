@@ -21,8 +21,8 @@ def master_controller():
     # Format: 'TeamName,password,0,NA'
     # This registers your team and starts the 4-minute clock
     start_msg = "TeamID,Password,0,NA" 
-    pub_score.publish(start_msg)
-    rospy.loginfo("Timer started for team: looker")
+    pub_score.publish(start_msg) 
+    rospy.loginfo("Timer started for team: TeamID")
 
     # 5. Set Initial State
     # 1 - road_PID
