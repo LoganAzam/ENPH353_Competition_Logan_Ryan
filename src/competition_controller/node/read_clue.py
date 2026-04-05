@@ -44,7 +44,7 @@ kernelH = 20
 textX = 6
 textY = 1
 fontSize = 16
-type_subtract_value = 30
+type_subtract_value = 50
 # Cut out Clue Value
 clue_val_x_min = 6
 clue_val_x_max = 123
