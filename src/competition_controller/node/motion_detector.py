@@ -15,17 +15,18 @@ class MotionDetector:
         self.reference = None
         
         # Logic thresholds
-        self.min_pixels = 1000
+        self.min_pixels = 300
         self.still_frames = 8
         self.moving_frames = 5
-        self.timeout = 300 # timeout
+        self.timeout = 750 # timeout
         
         # State counters
         self.still_counter = 0
         self.motion_counter = 0
         self.frame_count = 0
         self.has_seen_motion = False
-        
+        self.active_count = 0
+
         # Publishers
         self.pub_cmd = rospy.Publisher('/B1/cmd_vel', Twist, queue_size=1)
         self.pub_state = rospy.Publisher('/state_changer', Int32, queue_size=1)
@@ -48,6 +49,13 @@ class MotionDetector:
         self.active = (msg.data == 2)
         if self.active:
             rospy.loginfo("MotionDetector activated.")
+            self.active_count += 1
+            if self.active_count == 1:
+                self.timeout = 150
+                self.min_pixels = 1000
+            else:
+                self.timeout = 750
+                self.min_pixels = 200
             self.reset()
 
     def callback(self, data):

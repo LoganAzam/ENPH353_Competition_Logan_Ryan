@@ -29,4 +29,10 @@
          name="dirtroad_PID" 
          output="screen">
    </node>
+   <!-- Lake PID launch file -->
+   <node pkg="competition_controller"
+         type="Lake_PID.py"
+         name="Lake_PID" 
+         output="screen">
+   </node>
 </launch>

@@ -32,6 +32,8 @@ class RoadFollower:
         self.blue_init = True
         self.roundabout = False
         self.signcount = 0
+        self.foundTruck = False
+        self.truck_init = True
 
         # Mandatory 1-second delay for ROS Master registration 
         rospy.sleep(1)
@@ -47,8 +49,8 @@ class RoadFollower:
                 rospy.loginfo("road_PID node activated.")
             self.active = True
             self.red_line_suppression_end = rospy.get_time() + 3.0
-            self.roundabout_hug_entry = rospy.get_time() + 7.6
-            self.roundabout_hug_end = rospy.get_time() + 25.60
+            self.roundabout_hug_entry = rospy.get_time() + 5.9
+            self.roundabout_hug_end = rospy.get_time() + 25.60 - 7.45
             if self.signcount == 3:
                 self.blue_pix_suppression_end = rospy.get_time() + 7.0
             else:
@@ -78,8 +80,21 @@ class RoadFollower:
         search_top = int(0.65 * h)
         move = Twist()
 
+        if self.signcount == 3 and rospy.get_time() > self.roundabout_hug_entry and self.truck_init:
+            rospy.loginfo("Waiting for truck! Pausing PID and switching to Motion Tracking.")
+                
+                # 1. STOP the robot immediately to avoid collision penalties (-5pts)
+            self.pub_cmd.publish(Twist())
+                
+                # 2. Deactivate this node locally
+            self.active = False
+            self.foundTruck = True
+            self.truck_init = False
+            self.pub_state.publish(2)
+            return
+
         # --- MODE SWITCH: NORMAL VS ROUNDABOUT ---
-        if self.signcount == 3 and rospy.get_time() > self.roundabout_hug_entry and rospy.get_time() < self.roundabout_hug_end:
+        if self.signcount == 3 and rospy.get_time() < self.roundabout_hug_end and self.foundTruck:
             # 1. Detect WHITE lines specifically
             #rospy.loginfo("Roundabout Mode: Looking for WHITE lines only.")
             lower_white = np.array([0, 0, 200])
@@ -102,7 +117,7 @@ class RoadFollower:
             mask[0:search_top, 0:w] = 0
             
             target_center = w / 2 # Center of the road
-            p_gain = 65
+            p_gain = 55
 
         # 3. PID Calculation
         moments = cv2.moments(mask)
@@ -118,13 +133,15 @@ class RoadFollower:
                 move.linear.x = 0.8
                 move.angular.z = -float(error) / 60
             else:
-                move.linear.x = 0.5
+                move.linear.x = 0.6
                 move.angular.z = -float(error) / p_gain
 
         else:
             # Search behavior
             move.linear.x = 0.05
             move.angular.z = 1
+
+        
 
         # Inside the RoadFollower callback
         # Define Red HSV range (captures both ends of the hue spectrum)

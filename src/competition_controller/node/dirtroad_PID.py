@@ -20,7 +20,8 @@ class DirtroadFollower:
         self.image_sub = rospy.Subscriber("/B1/rrbot/camera1/image_raw", Image, self.callback, queue_size=3)
         self.state_sub = rospy.Subscriber('/state_changer', Int32, self.state_callback, queue_size=1)
 
-        
+        self.signfound = False
+        self.lakeFound = False
 
         rospy.sleep(1)
     
@@ -59,25 +60,55 @@ class DirtroadFollower:
         lower_white = np.array([25, 0, 174])
         upper_white = np.array([65, 76, 255])
         mask = cv2.inRange(hsv, lower_white, upper_white)
-        cv2.imshow("Dirt Road Mask", mask) # DEBUG: Show the mask to verify it's working
-        cv2.waitKey(1)  # Add this line to allow OpenCV to process the window events
+        #cv2.imshow("Dirt Road Mask", mask) # DEBUG: Show the mask to verify it's working
+        #cv2.waitKey(1)  # Add this line to allow OpenCV to process the window events
+
+        lower_water = np.array([92, 0, 109])
+        upper_water = np.array([179, 104, 255])
+        watermask = cv2.inRange(hsv, lower_water, upper_water)
+        watermask[0:int(0.5 * h), :] = 0 # Focus on bottom half
+        #cv2.imshow("Water Mask", watermask) # DEBUG: Show the water mask to verify it's working
+        #cv2.waitKey(1)  # Add this line to allow OpenCV to process the window events
+
+        if cv2.countNonZero(watermask) > 10000 and self.signfound and rospy.get_time() > self.blue_pix_suppression_end: # If we see a lot of water pixels, we can be pretty confident we're at the lake. The signfound condition is to prevent false positives from puddles in the dirt road.
+            rospy.loginfo("Water detected! Pausing PID and switching to Lake PID.")
+            self.pub_cmd.publish(Twist())
+            self.active = False
+            self.lakeFound = True
+            self.pub_state.publish(4)
+            return
 
         # ROI: Focus on bottom half
         mask[0:search_top, :] = 0
-        mask[:, int(w/2):w] = 0 # Hugging left
-            
-        target_center = w / 4 
-        p_gain = 50 
+        if not self.signfound:
+            mask[:, int(w/2):w] = 0 # Hugging left
+            target_center = w / 4
+        else:
+            rospy.loginfo("Sign found, hugging right!")
+            mask[:, 0:int(w/2)] = 0 # Hugging right
+            target_center = int(3*(w / 4))
+
+        p_gain = 50
 
         moments = cv2.moments(mask)
-        if moments['m00'] > 0:
+        if moments['m00'] > 0 and not self.signfound: # Only do PID if we haven't found the sign yet
+            cx = int(moments['m10'] / moments['m00'])
+            error = cx - target_center
+            move.linear.x = 0.6 # Slower for dirt road curves
+            move.angular.z = -float(error) / p_gain
+        elif self.signfound and not self.lakeFound: # If we've found the sign but not the lake, we want to turn sharply right to find the lake faster
+            rospy.loginfo("Lakefind")
+            move.linear.x = 0.35
+            move.angular.z = -0.75
+        elif moments['m00'] > 0 and self.lakeFound: # Only do PID if we haven't found the sign yet
             cx = int(moments['m10'] / moments['m00'])
             error = cx - target_center
             move.linear.x = 0.6 # Slower for dirt road curves
             move.angular.z = -float(error) / p_gain
         else:
+            rospy.loginfo("Initial Line Find")
             move.linear.x = 0.3
-            move.angular.z = 0.5
+            move.angular.z = 0.3
 
         #self.pub_cmd.publish(move)
 
@@ -111,11 +142,32 @@ class DirtroadFollower:
                 self.active = False
                 
                 # Switch the global state to Plate Sweep (State 0)
-                #self.pub_state.publish(0)
-                
+                self.pub_state.publish(0)
+                self.signfound = True
+
                 # 3. EXIT the callback immediately so we don't publish the PID move command below
                 return 
             
+        lower_magenta = np.array([140, 100, 100])
+        upper_magenta = np.array([160, 255, 255])
+        
+        # Define Magenta HSV range (captures both ends of the hue spectrum)
+        magenta_mask = cv2.inRange(hsv, lower_magenta, upper_magenta)
+
+        # Look specifically at the bottom 40% of the screen
+        if cv2.countNonZero(magenta_mask[int(0.8*h):, :]) > 1000 and self.signfound: # The signfound condition is to prevent false positives from things like pink flowers on the side of the road
+                rospy.loginfo("Magenta line detected! Moving to roadless")
+                
+                # 1. STOP the robot immediately to avoid collision penalties (-5pts)
+                self.pub_cmd.publish(Twist())
+                
+                # 2. Deactivate this node locally
+                self.active = False
+                
+                # 3. Trigger the next node (State 2 = Motion Tracking)
+                self.pub_state.publish(5) 
+                return
+
         self.pub_cmd.publish(move)
 
 if __name__ == '__main__':
