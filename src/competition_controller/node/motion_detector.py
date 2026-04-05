@@ -53,9 +53,12 @@ class MotionDetector:
             if self.active_count == 1:
                 self.timeout = 150
                 self.min_pixels = 1000
-            else:
+            elif self.active_count == 2:
                 self.timeout = 750
                 self.min_pixels = 200
+            else:
+                self.timeout = 500
+                self.min_pixels = 300
             self.reset()
 
     def callback(self, data):
@@ -120,8 +123,8 @@ class MotionDetector:
             self.active = False
 
         # Debugging view 
-        #cv2.imshow("Motion ROI", roi)
-        #cv2.waitKey(1)
+        cv2.imshow("Motion ROI", roi)
+        cv2.waitKey(1)
 
 if __name__ == '__main__':
     rospy.init_node('motion_detector')

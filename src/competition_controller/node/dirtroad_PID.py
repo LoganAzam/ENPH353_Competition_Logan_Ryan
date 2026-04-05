@@ -23,6 +23,7 @@ class DirtroadFollower:
         self.signfound = False
         self.lakeFound = False
         self.turnkey = False
+        self.init_line = True
 
         rospy.sleep(1)
     
@@ -34,6 +35,7 @@ class DirtroadFollower:
             self.active = True
             self.blue_pix_suppression_end = rospy.get_time() + 7.0 # Initialize to current time so it's not active at start
             self.blue_pix_suppression_lake = rospy.get_time() + 1.5 # Longer suppression for lake since the blue pixels there are more likely to cause false positives
+            self.find_line_buffer = rospy.get_time() + 3.0 # Initialize buffer for finding line
         else:
             if self.active:
                 rospy.loginfo("dirtroad_PID node deactivated.")
@@ -103,13 +105,17 @@ class DirtroadFollower:
         p_gain = 50
 
         moments = cv2.moments(mask)
-        if moments['m00'] > 0 and not self.signfound: # Only do PID if we haven't found the sign yet
+        if self.init_line and rospy.get_time() < self.find_line_buffer:
+            # If we're in the buffer period, just keep moving forward
+            move.linear.x = 0.7
+            move.angular.z = -0.95
+        elif moments['m00'] > 0 and not self.signfound: # Only do PID if we haven't found the sign yet
             cx = int(moments['m10'] / moments['m00'])
             error = cx - target_center
             move.linear.x = 0.6 # Slower for dirt road curves
             move.angular.z = -float(error) / p_gain
         elif self.signfound and not self.lakeFound: # If we've found the sign but not the lake, we want to turn sharply right to find the lake faster
-            rospy.loginfo("Lakefind")
+            #rospy.loginfo("Lakefind")
             move.linear.x = 0.35
             move.angular.z = -0.75
         elif moments['m00'] > 0 and self.lakeFound: # Only do PID if we haven't found the sign yet
@@ -148,6 +154,7 @@ class DirtroadFollower:
             if blue_count > 7000:
                 rospy.loginfo(f"Blue Sign Confirmed! Switching to Plate Sweep. Count: {blue_count}")
                 # STOP the robot
+                self.init_line = False
                 self.pub_cmd.publish(Twist())
                 turn_time = rospy.get_time() + 1.0 # Time to turn right and find the lake faster, since the sign is on the left side of the road
                 move.linear.x = 0.0
