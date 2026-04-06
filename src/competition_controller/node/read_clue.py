@@ -19,6 +19,8 @@ pub_score = None
 bridge = CvBridge()
 
 # Parameters
+# Add black border to get full clueboard
+border = 20
 # HSV Filter to find clueboard
 lowerHSV_bound = np.array([100, 125, 30])
 upperHSV_bound = np.array([140, 255, 255])
@@ -39,6 +41,7 @@ clue_type_y_min = 5
 clue_type_y_max = 25
 lowerHSV_clue_type_bound = np.array([100, 60, 0])
 upperHSV_clue_type_bound = np.array([140, 255, 255])
+# Get the start of the clue type
 # Convolve with Clue Type Kernels
 kernelW = 70
 kernelH = 20
@@ -51,6 +54,7 @@ clue_val_x_min = 6
 clue_val_x_max = 123
 clue_val_y_min = 49
 clue_val_y_max = 63
+# Get the start of the message
 # Break into Characters
 # Convolve with Clue Value Kernels
 char_subtract_value = 50
@@ -103,6 +107,9 @@ def reshapeRectangle(rectangle):
   return corners.reshape(4, 1, 2)
 
 def readClue(cv2Image):
+  # Add black border to get full clueboard
+  cv2Image = cv2.copyMakeBorder(cv2Image, border, border, border, border, cv2.BORDER_CONSTANT, value=(0, 0, 0))
+
   # HSV Filter to find clueboard
   hsv_image = cv2.cvtColor(cv2Image, cv2.COLOR_BGR2HSV)
   hsv_threshold_img = cv2.inRange(hsv_image, lowerHSV_bound, upperHSV_bound)
@@ -127,6 +134,8 @@ def readClue(cv2Image):
   inside_contour = sorted_contours[1]
   perimeter = cv2.arcLength(inside_contour, True)
   rectangle = cv2.approxPolyDP(inside_contour, 0.02 * perimeter, True)
+  if len(rectangle) != 4:
+    return None, None
   rectangleCorners = reshapeRectangle(rectangle)
 
   # Compute Homography
@@ -156,7 +165,7 @@ def readClue(cv2Image):
   _, clue_val_img = cv2.threshold(clue_val_resized, 90, 255, cv2.THRESH_BINARY)
 
   # Get the start of the message
-  coords = np.argwhere(clue_type_gray != 0)
+  coords = np.argwhere(clue_val_img != 0)
   if coords.size != 0:
     row, col = coords[np.argmin(coords[:, 1])]
     shift_distance = col - clue_val_x_min + 1
