@@ -35,8 +35,8 @@ templatePoints = np.array([[[0, 0]],
                                [[0, boardHeight-1]]]
                               , dtype=np.float32)
 # Cut out Clue Type
-clue_type_x_min = 50
-clue_type_x_max = 120
+clue_type_x_min = 48
+clue_type_x_max = 118
 clue_type_y_min = 5
 clue_type_y_max = 25
 lowerHSV_clue_type_bound = np.array([100, 60, 0])
@@ -66,7 +66,7 @@ clueTypeArray = ["SIZE", "VICTIM", "CRIME", "TIME", "PLACE", "MOTIVE", "WEAPON",
 for clueType in clueTypeArray:
   kernel_PIL = PILImage.fromarray(np.zeros([kernelH, kernelW], dtype=np.uint8))
   draw = ImageDraw.Draw(kernel_PIL)
-  draw.text((textX, textY), clueType, fill=255, font=monospace, stroke_width=0)
+  draw.text((textX, textY), clueType, fill=255, font=monospace, stroke_width=1)
   typeKernel = np.array(kernel_PIL).astype(np.float32) / 255.0
   typeKernel[typeKernel == 0] = -1.0
   kernelArray.append(typeKernel)
