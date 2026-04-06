@@ -8,15 +8,39 @@ from std_msgs.msg import String
 import numpy as np
 from PIL import Image as PILImage, ImageDraw, ImageFont
 import string
-
-# import os
-# count = 0
+import tensorflow as tf
+import  os
 
 # Needs to be global
 pub_score = None
-# pub_view = None
 
 bridge = CvBridge()
+
+# Import CNN Model
+model_path = os.path.expanduser("~/ros_ws/src/competition_controller/models/conv_model.tflite")
+interpreter = tf.lite.Interpreter(model_path=model_path)
+interpreter.allocate_tensors()
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+
+# One hot encoding function for characters
+characters = characters = string.ascii_uppercase + string.digits + ' '
+
+def convert_to_one_hot(Y_char):
+  Y_ord = ord(Y_char)
+  if Y_ord > 64:
+    Y = Y_ord - 65
+  elif Y_ord > 47:
+    Y = Y_ord - 48 + 26
+  else:
+    Y = 36
+  ohe = np.zeros(37)
+  ohe[Y] = 1.0
+  return ohe
+
+def convert_from_one_hot(ohe):
+  Y = np.argmax(ohe)
+  return characters[Y]
 
 # Parameters
 # Add black border to get full clueboard
@@ -35,8 +59,8 @@ templatePoints = np.array([[[0, 0]],
                                [[0, boardHeight-1]]]
                               , dtype=np.float32)
 # Cut out Clue Type
-clue_type_x_min = 48
-clue_type_x_max = 118
+clue_type_x_min = 48 # 50 for colab
+clue_type_x_max = 118 # 120 for colab
 clue_type_y_min = 5
 clue_type_y_max = 25
 lowerHSV_clue_type_bound = np.array([100, 60, 0])
@@ -56,8 +80,9 @@ clue_val_y_min = 49
 clue_val_y_max = 63
 # Get the start of the message
 # Break into Characters
-# Convolve with Clue Value Kernels
-char_subtract_value = 50
+charH = 70
+charW = 50
+# Put characters through CNN
 
 # Create Kernels for Clue Type
 monospace = ImageFont.truetype(font="/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf", size=fontSize)
@@ -70,29 +95,6 @@ for clueType in clueTypeArray:
   typeKernel = np.array(kernel_PIL).astype(np.float32) / 255.0
   typeKernel[typeKernel == 0] = -1.0
   kernelArray.append(typeKernel)
-
-# Create Kernels for Clue Value
-charH = 70
-charW = 50
-fontSize = 80
-kernelNegVal = -0.5
-monospace = ImageFont.truetype(font="/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf", size=fontSize)
-characters = string.ascii_uppercase + string.digits + ' '
-kernelCharArray = []
-kernelCentroidArray = []
-for c in characters:
-  char_PIL = PILImage.fromarray(np.zeros([charH, charW], dtype=np.uint8))
-  draw = ImageDraw.Draw(char_PIL)
-  draw.text((0, -8), c, fill=255, font=monospace, stroke_width=1)
-  char_np = np.array(char_PIL, dtype=np.float32)
-  charKernel = char_np / 255.0
-  if c != ' ':
-    k_y, k_x = np.array(np.nonzero(charKernel)).mean(axis=1)
-    kernelCentroidArray.append(np.array([k_x, k_y]))
-  else:
-    kernelCentroidArray.append(np.array([0, 0]))
-  charKernel[charKernel == 0] = kernelNegVal
-  kernelCharArray.append(charKernel)
 
 # Reorder the points of a rectangle
 def reshapeRectangle(rectangle):
@@ -176,26 +178,22 @@ def readClue(cv2Image):
   # Break into Characters
   messageArray = []
   for i in range(12):
-    nextCharacter = clue_val_img[:, charW*i:charW*(i+1)]
+    nextCharacter = np.array(clue_val_img[:, charW*i:charW*(i+1)], dtype=np.uint8)
     messageArray.append(nextCharacter)
 
-  # Convolve with Clue Value Kernels
+  # Put characters through CNN
   clueVal = ''
   for char_img in messageArray:
-    best_clue_val = 0
-    best_clue_index = 0
-    for i, charKernel in enumerate(kernelCharArray):
-      if np.nonzero(char_img)[0].size == 0:
-        c_y, c_x = 0, 0
-      else:
-        c_y, c_x = np.array(np.nonzero(char_img)).mean(axis=1)
-      shiftMatrix = np.float32([[1, 0, kernelCentroidArray[i][0] - c_x], [0, 1, kernelCentroidArray[i][1] - c_y]])
-      aligned_char_img = cv2.warpAffine(char_img, shiftMatrix, (charW, charH))
-      conv_val = np.sum((np.array(aligned_char_img, dtype=np.float32) - char_subtract_value) * np.array(charKernel, dtype=np.float32))
-      if conv_val > best_clue_val:
-        best_clue_val = conv_val
-        best_clue_index = i
-    clueVal += characters[best_clue_index]
+    char_img = char_img / 255.0
+    char_img = np.expand_dims(char_img, -1)
+    char_img = np.expand_dims( char_img, 0)
+
+    # Use the model
+    interpreter.set_tensor(input_details[0]['index'], char_img.astype(np.float32))
+    interpreter.invoke()
+    output_data = interpreter.get_tensor(output_details[0]['index'])
+
+    clueVal += convert_from_one_hot(output_data)
 
   return (best_clue_type_index + 1), clueVal
 

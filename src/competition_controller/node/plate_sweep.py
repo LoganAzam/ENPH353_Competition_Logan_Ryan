@@ -24,7 +24,6 @@ def callback_state(data):
     global pub_state
     global last_state
     if data.data == PLATE_SWEEP_NUMBER:
-        print("Sweep state entered") # DEBUG
         if last_img is not None:
             pub_clue.publish(last_img)
 
