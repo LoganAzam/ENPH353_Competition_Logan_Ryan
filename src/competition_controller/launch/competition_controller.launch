@@ -42,9 +42,9 @@
          output="screen">
    </node>
    <!-- Roadless PID launch file -->
-   <!-- <node pkg="competition_controller"
+   <node pkg="competition_controller"
          type="roadless_PID.py"
          name="roadless_PID" 
          output="screen">
-   </node> -->
+   </node>
 </launch>

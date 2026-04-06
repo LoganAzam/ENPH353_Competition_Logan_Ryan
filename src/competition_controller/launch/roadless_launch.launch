@@ -47,10 +47,10 @@
          name="roadless_PID" 
          output="screen">
    </node>
-   <!--  Teleport launch file -->
+   <!--  Teleport_2 launch file -->
    <node pkg="competition_controller"
-         type="teleport.py"
-         name="teleport" 
+         type="teleport_2.py"
+         name="teleport_2" 
          output="screen">
    </node>
 </launch>
