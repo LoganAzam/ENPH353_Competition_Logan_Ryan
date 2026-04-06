@@ -1,0 +1,20 @@
+<launch>
+   <!-- Teleporter launch file -->
+   <node pkg="competition_controller"
+         type="clueboard_teleporter.py"
+         name="clueboard_teleporter" 
+         output="screen">
+   </node>
+   <!-- Plate Sweep launch file -->
+   <node pkg="competition_controller"
+         type="plate_sweep.py"
+         name="plate_sweep" 
+         output="screen">
+   </node>
+   <!-- Read Clue launch file -->
+   <node pkg="competition_controller"
+         type="read_clue.py"
+         name="read_clue" 
+         output="screen">
+   </node>
+</launch>
