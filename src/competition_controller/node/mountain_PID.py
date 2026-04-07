@@ -116,7 +116,7 @@ class MountainFollower:
                 if not self.corner_yet_1:
                     self.corner_buffer = rospy.get_time() + 1.8
                     while rospy.get_time() < self.corner_buffer:
-                        rospy.loginfo("Turn 1.")
+                        #rospy.loginfo("Turn 1.")
                         move.linear.x = 0.4 # Slower for dirt road curves
                         move.angular.z = 1.8
                         self.pub_cmd.publish(move)
@@ -132,7 +132,7 @@ class MountainFollower:
                 elif not self.corner_yet_2 and rospy.get_time() > self.corner_buffer:
                     self.corner_buffer = rospy.get_time() + 1.8
                     while rospy.get_time() < self.corner_buffer:
-                        rospy.loginfo("Turn 2.")
+                        #rospy.loginfo("Turn 2.")
                         move.linear.x = 0.4 # Slower for dirt road curves
                         move.angular.z = 1.5
                         self.pub_cmd.publish(move)
@@ -141,7 +141,7 @@ class MountainFollower:
                 elif not self.corner_yet_3 and rospy.get_time() > self.corner_buffer:
                     self.corner_buffer = rospy.get_time() + 1.8
                     while rospy.get_time() < self.corner_buffer:
-                        rospy.loginfo("Turn 3.")
+                        #rospy.loginfo("Turn 3.")
                         move.linear.x = 0.0 # Slower for dirt road curves
                         move.angular.z = 1.6
                         self.pub_cmd.publish(move)

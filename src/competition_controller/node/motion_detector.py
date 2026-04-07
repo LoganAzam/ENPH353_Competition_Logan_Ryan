@@ -30,7 +30,7 @@ class MotionDetector:
         self.motion_counter = 0
         self.frame_count = 0
         self.has_seen_motion = False
-        self.active_count = 0 
+        self.active_count = 0  # should be 0
 
         # Publishers
         self.pub_cmd = rospy.Publisher('/B1/cmd_vel', Twist, queue_size=1)
@@ -68,8 +68,9 @@ class MotionDetector:
                 self.min_pixels = 200
             else:
                 rospy.loginfo("Yoda Mode (Sliding Window Active)")
-                self.timeout = 750
-                self.min_pixels = 70
+                self.timeout = 1500
+                self.min_pixels = 30
+                self.still_frames = 15
             
             self.reset()
 
@@ -82,6 +83,8 @@ class MotionDetector:
         if self.frame_count > self.timeout:
             rospy.logwarn("Timeout reached.")
             self.pub_state.publish(1)
+            if self.active_count == 3:
+                self.pub_state.publish(5)
             self.active = False
             return
 
@@ -140,10 +143,13 @@ class MotionDetector:
         if self.has_seen_motion and self.still_counter >= self.still_frames:
             rospy.loginfo("Clear - Returning to Road PID.")
             self.pub_state.publish(1)
+            if self.active_count == 3:
+                self.pub_state.publish(5)
             self.active = False
 
         cv2.imshow("Motion ROI", roi)
         cv2.waitKey(1)
+        rospy.loginfo(f"Frame: {self.frame_count}, Motion Pixels: {motion_pixels}, Still Counter: {self.still_counter}, Motion Counter: {self.motion_counter}")
 
 if __name__ == '__main__':
     rospy.init_node('motion_detector')
