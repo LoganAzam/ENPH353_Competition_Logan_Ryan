@@ -60,7 +60,7 @@ class MountainFollower:
             self.active = False
 
             # Switch the global state to sweep
-            self.pub_state.publish(9)
+            self.pub_state.publish(-2)
             return
 
         hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)

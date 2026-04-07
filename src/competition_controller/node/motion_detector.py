@@ -25,7 +25,7 @@ class MotionDetector:
         self.motion_counter = 0
         self.frame_count = 0
         self.has_seen_motion = False
-        self.active_count = 0
+        self.active_count = 0 # should be zero
 
         # Publishers
         self.pub_cmd = rospy.Publisher('/B1/cmd_vel', Twist, queue_size=1)
@@ -62,8 +62,8 @@ class MotionDetector:
                 self.min_pixels = 200
             else:
                 rospy.loginfo("Yoda Mode.")
-                self.timeout = 500
-                self.min_pixels = 150
+                self.timeout = 750
+                self.min_pixels = 50
             
             self.reset()
 

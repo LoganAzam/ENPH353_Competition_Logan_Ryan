@@ -35,7 +35,7 @@ def teleport_2():
     # Tell the other nodes we are now in State 3 (Dirt Road)
     state_pub = rospy.Publisher('/state_changer', Int32, queue_size=1, latch=True)
     rospy.sleep(0.5) # Give the publisher a moment to connect
-    state_pub.publish(5)
+    state_pub.publish(2)
     rospy.loginfo("State changed to 5 (Roadless).")
 
 if __name__ == '__main__':
