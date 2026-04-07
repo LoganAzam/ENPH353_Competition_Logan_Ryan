@@ -17,8 +17,10 @@ import  os
 pub_score = None
 
 hasBeenSent = False
+hasBeenStopped = False
 current_time = None
 start_time = None
+send_time = None
 imageArray = []
 
 bridge = CvBridge()
@@ -212,6 +214,7 @@ def readClue(cv2Image):
   return (best_clue_type_index + 1), clueVal
 
 def processImages():
+  global pub_score
   for image in imageArray:
     clueType, clueVal = readClue(image)
     if (clueType is not None) and (clueVal is not None):
@@ -219,6 +222,11 @@ def processImages():
       pub_score.publish(submitMessage)
     else:
       print("readClue returned None")
+
+def stopTimer():
+  global pub_score
+  submitMessage = "TeamID,Password," + str(-1) + ",NA"
+  pub_score.publish(submitMessage)
 
 def callback(data):
   cv2Image = bridge.imgmsg_to_cv2(data, "bgr8")
@@ -228,6 +236,8 @@ def clock_callback(data):
   global current_time
   global start_time
   global hasBeenSent
+  global send_time
+  global hasBeenStopped
   seconds = data.clock.secs
   current_time = seconds
   if start_time is not None:
@@ -235,6 +245,10 @@ def clock_callback(data):
       if not hasBeenSent:
         hasBeenSent = True
         processImages()
+      if seconds - start_time > 235:
+        if not hasBeenStopped:
+          hasBeenStopped = True
+          stopTimer()
 
 def callback_state(data):
   global current_time
