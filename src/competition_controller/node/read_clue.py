@@ -13,6 +13,9 @@ import string
 import tensorflow as tf
 import  os
 
+# For saving images
+count = 0
+
 # Needs to be global
 pub_score = None
 
@@ -131,6 +134,14 @@ def readClue(cv2Image):
   # HSV Filter to find clueboard
   hsv_image = cv2.cvtColor(cv2Image, cv2.COLOR_BGR2HSV)
   hsv_threshold_img = cv2.inRange(hsv_image, lowerHSV_bound, upperHSV_bound)
+
+  if not os.path.exists("saved_images"):
+      os.makedirs("saved_images")
+  global count
+  count += 1
+  filename = os.path.join("saved_images", f"image_{count:03d}.png")
+  cv2.imwrite(filename, hsv_threshold_img.copy())
+
 
   # Find clueboard Border
   num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(hsv_threshold_img)
