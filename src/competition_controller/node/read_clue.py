@@ -23,6 +23,13 @@ interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 
+input_shape = input_details[0]['shape']
+dummy_input = np.zeros(input_shape, dtype=np.float32)
+interpreter.set_tensor(input_details[0]['index'], dummy_input)
+interpreter.invoke()
+_ = interpreter.get_tensor(output_details[0]['index'])
+
+
 # One hot encoding function for characters
 characters = characters = string.ascii_uppercase + string.digits + ' '
 
@@ -203,6 +210,8 @@ def callback(data):
     if (clueType is not None) and (clueVal is not None):
       submitMessage = "TeamID,Password," + str(clueType) + "," + clueVal
       pub_score.publish(submitMessage)
+    else:
+      print("readClue returned None")
 
     # if not os.path.exists("saved_images"):
     #     os.makedirs("saved_images")
