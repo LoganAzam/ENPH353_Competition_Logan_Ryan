@@ -28,15 +28,12 @@ class DirtroadVisualizer:
         # 1. Setup Dimensions
         h, w, _ = cv_image.shape
         
-        # --- UPDATED ROI BOUNDARIES TO MATCH YOUR LINE ---
-        # Top: shifted up slightly by h/16
-        y_start = int(h/2) - int(h/16) 
-        # Bottom: 80% down the screen
-        y_end = int(4*h/5)
-        # Left: Vertical centerline
-        x_start = int(w/2)
-        # Right: Right edge
-        x_end = int(w)
+        # --- ROI BOUNDARIES: BOTTOM 60% ---
+        # We skip the top 40% (0.4) to keep the bottom 60%
+        y_start = int(h * 0.4)
+        y_end = h
+        x_start = 0
+        x_end = w
 
         # 2. Convert to HSV
         hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
@@ -44,28 +41,40 @@ class DirtroadVisualizer:
         # 3. Create the Blue Mask
         lower_blue = np.array([100, 120, 30])
         upper_blue = np.array([140, 255, 255])
-        blue_mask_full = cv2.inRange(hsv, lower_blue, upper_blue)
+        blue_mask = cv2.inRange(hsv, lower_blue, upper_blue)
 
         # 4. Apply the restricted ROI
-        # Create blank mask and copy only the ROI pixels
-        mask_roi_only = np.zeros_like(blue_mask_full)
-        mask_roi_only[y_start:y_end, x_start:x_end] = blue_mask_full[y_start:y_end, x_start:x_end]
+        mask_roi_only = np.zeros_like(blue_mask)
+        mask_roi_only[y_start:y_end, x_start:x_end] = blue_mask[y_start:y_end, x_start:x_end]
 
-        # 5. Count pixels ONLY in that specific window
-        pixel_count = cv2.countNonZero(mask_roi_only)
+        # 5. Calculate Moments and Centroid (The Homing Point)
+        moments = cv2.moments(mask_roi_only)
+        cx, cy = None, None
 
-        # 6. Visual Feedback
-        # The green box now shows exactly what your 'blue_bottom_half' slice covers
-        cv2.rectangle(cv_image, (x_start, y_start), (x_end, y_end), (0, 255, 0), 2)
-        
-        cv2.putText(cv_image, f"Pixels in Slice: {pixel_count}", 
-                    (x_start + 5, y_start - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        if moments['m00'] > 0:
+            cx = int(moments['m10'] / moments['m00'])
+            cy = int(moments['m01'] / moments['m00'])
 
-        # 7. Visualization
+        # 6. Visualization Prep
+        # Convert mask to BGR so we can draw a RED dot on it
         mask_bgr = cv2.cvtColor(mask_roi_only, cv2.COLOR_GRAY2BGR)
-        stacked_view = np.hstack((cv_image, mask_bgr))
 
-        cv2.imshow("Blue ROI Match Test", stacked_view)
+        if cx is not None and cy is not None:
+            # Draw RED dot on both images
+            cv2.circle(mask_bgr, (cx, cy), 10, (0, 0, 255), -1)
+            cv2.circle(cv_image, (cx, cy), 10, (0, 0, 255), -1)
+
+        # 7. Visual Feedback
+        # Green box highlights the Bottom 60% ROI
+        cv2.rectangle(cv_image, (x_start, y_start), (x_end - 1, y_end - 1), (0, 255, 0), 2)
+        
+        pixel_count = cv2.countNonZero(mask_roi_only)
+        cv2.putText(cv_image, f"Blue Pixels: {pixel_count}", 
+                    (10, h - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+        # 8. Display
+        stacked_view = np.hstack((cv_image, mask_bgr))
+        cv2.imshow("Blue Sign Debug (Bottom 60%)", stacked_view)
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
             rospy.signal_shutdown("User requested quit")

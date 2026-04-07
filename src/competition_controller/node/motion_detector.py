@@ -14,32 +14,31 @@ class MotionDetector:
         self.active = False
         self.reference = None
         
-        # State Tracking
-        self.last_state = 1        # Default source state
-        self.return_state = 1      # Where we actually go back to
-        self.state_1_count = 0     # To distinguish between crosswalk 1 and 2
-        
-        # Logic thresholds (will be overwritten in callback)
+        # Logic thresholds
         self.min_pixels = 300
         self.still_frames = 8
         self.moving_frames = 5
-        self.timeout = 750
+        self.timeout = 750 
         
-        # Internal Counters
+        # State counters
         self.still_counter = 0
         self.motion_counter = 0
         self.frame_count = 0
         self.has_seen_motion = False
+        self.active_count = 0
 
-        # ROS Comm
+        # Publishers
         self.pub_cmd = rospy.Publisher('/B1/cmd_vel', Twist, queue_size=1)
         self.pub_state = rospy.Publisher('/state_changer', Int32, queue_size=1)
+        
+        # Subscribers
         self.image_sub = rospy.Subscriber("/B1/rrbot/camera1/image_raw", Image, self.callback)
         self.state_sub = rospy.Subscriber('/state_changer', Int32, self.state_callback)
 
-        rospy.sleep(1) 
+        rospy.sleep(1)
 
     def reset(self):
+        """Resets the detection state for a new crosswalk."""
         self.reference = None
         self.still_counter = 0
         self.motion_counter = 0
@@ -47,35 +46,26 @@ class MotionDetector:
         self.frame_count = 0
 
     def state_callback(self, msg):
-        # Activation Logic
-        if msg.data == 2:
-            if not self.active:
-                rospy.loginfo(f"MotionDetector activated! Origin State: {self.last_state}")
-                self.active = True
-                self.return_state = self.last_state # Lock in the return address
-                
-                # Assign Thresholds based on source
-                if self.last_state == 1:
-                    self.state_1_count += 1
-                    if self.state_1_count == 1:
-                        # First Crosswalk (Road)
-                        self.timeout = 150
-                        self.min_pixels = 1000
-                    else:
-                        # Truck (Road)
-                        self.timeout = 750
-                        self.min_pixels = 200
-                elif self.last_state == 3:
-                    # Third Crosswalk (Dirt Road)
-                    self.timeout = 500
-                    self.min_pixels = 30
-
-                self.reset()
-        else:
-            # If the state is NOT 2, we update last_state so we know where 
-            # the next call comes from.
-            self.active = False
-            self.last_state = msg.data
+        self.active = (msg.data == 2)
+        if self.active:
+            rospy.loginfo("MotionDetector activated.")
+            self.active_count += 1
+            
+            # Per-crosswalk logic based on encounter order
+            if self.active_count == 1:
+                rospy.loginfo("Pedestrian Mode")
+                self.timeout = 150
+                self.min_pixels = 1000
+            elif self.active_count == 2:
+                rospy.loginfo("Truck Mode")
+                self.timeout = 750
+                self.min_pixels = 200
+            else:
+                rospy.loginfo("Yoda Mode.")
+                self.timeout = 500
+                self.min_pixels = 150
+            
+            self.reset()
 
     def callback(self, data):
         if not self.active:
@@ -83,10 +73,11 @@ class MotionDetector:
 
         self.frame_count += 1
         
-        # 1. Safety Timeout: Proceed back to origin if stuck
+        # 1. Safety Timeout: Proceed if stuck too long
         if self.frame_count > self.timeout:
-            rospy.logwarn(f"Timeout! Returning to state {self.return_state}")
-            self.exit_node()
+            rospy.logwarn("Timeout reached.")
+            self.pub_state.publish(1)
+            self.active = False
             return
 
         try:
@@ -100,51 +91,46 @@ class MotionDetector:
             self.reference = curr_gray
             return
 
-        # 2. Motion Detection Logic
+        # 2. Motion Detection
         diff = cv2.absdiff(self.reference, curr_gray)
         _, thresh = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)
         
-        # Morphology
+        # Clean up Gaussian noise
         kernel = np.ones((5, 5), np.uint8)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
         
-        # Focus on ROI
+        # Focus on the crosswalk ROI
         h, w = thresh.shape
         roi = thresh[int(h/4):, int(w/4):int(3*w/4)]
         motion_pixels = cv2.countNonZero(roi)
 
-        cv2.imshow("Motion ROI", roi)
-        cv2.waitKey(1) 
-
-        # 3. Success Conditions
+        # 3. Decision Logic
         has_motion = motion_pixels > self.min_pixels
 
         if has_motion:
             self.motion_counter += 1
             self.still_counter = 0
-            self.reference = curr_gray 
+            self.reference = curr_gray # Update baseline
             
             if self.motion_counter >= self.moving_frames and not self.has_seen_motion:
                 self.has_seen_motion = True
-                rospy.loginfo("Pedestrian detected.")
+                rospy.loginfo("Motion confirmed.")
         else:
             self.motion_counter = 0
             self.still_counter += 1
             if self.still_counter % 20 == 0:
-                self.reference = curr_gray
+                self.reference = curr_gray # Periodic baseline update
 
-        # 4. Exit Condition
+        # 4. Success Condition
         if self.has_seen_motion and self.still_counter >= self.still_frames:
-            rospy.loginfo(f"Clear - Returning to state {self.return_state}")
-            self.exit_node()
+            rospy.loginfo("Clear - Returning to PID.")
+            self.pub_state.publish(1)
+            self.active = False
 
-    def exit_node(self):
-        """Helper to cleanup and publish state change."""
-        self.pub_state.publish(self.return_state)
-        self.active = False
-        # Optional: cv2.destroyWindow("Motion ROI")
-
-    
+        # Debugging view
+        cv2.imshow("Motion ROI", roi)
+        cv2.waitKey(1)
 
 if __name__ == '__main__':
     rospy.init_node('motion_detector')

@@ -84,6 +84,17 @@ class RoadlessFollower:
             error = cx - target_center
             move.linear.x = 0.8 # Slower for dirt road curves
             move.angular.z = -float(error) / p_gain
+        else:
+            rospy.loginfo("No magenta detected, switching to mountain mode.")
+
+            self.pub_cmd.publish(Twist())
+
+            # Deactivate this node
+            self.active = False
+
+            # Switch the global state to sweep
+            self.pub_state.publish(9)
+            return
 
         lower_blue = np.array([100, 120, 30])
         upper_blue = np.array([140, 255, 255])

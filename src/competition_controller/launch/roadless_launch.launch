@@ -53,4 +53,10 @@
          name="teleport_2" 
          output="screen">
    </node>
+   <!-- Mountain PID launch file -->
+   <node pkg="competition_controller"
+         type="mountain_PID.py"
+         name="mountain_PID" 
+         output="screen">
+   </node>
 </launch>
