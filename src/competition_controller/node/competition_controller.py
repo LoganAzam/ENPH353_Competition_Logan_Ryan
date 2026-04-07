@@ -24,6 +24,8 @@ def master_controller():
     pub_score.publish(start_msg) 
     rospy.loginfo("Timer started for team: TeamID")
 
+    pub_state.publish(-1)
+    rospy.sleep(1)
     # 5. Set Initial State
     # 1 - road_PID
     pub_state.publish(1)

@@ -4,7 +4,9 @@ import rospy
 import cv2
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
+from std_msgs.msg import Int32
 from std_msgs.msg import String
+from rosgraph_msgs.msg import Clock
 import numpy as np
 from PIL import Image as PILImage, ImageDraw, ImageFont
 import string
@@ -13,6 +15,11 @@ import  os
 
 # Needs to be global
 pub_score = None
+
+hasBeenSent = False
+current_time = None
+start_time = None
+imageArray = []
 
 bridge = CvBridge()
 
@@ -204,21 +211,36 @@ def readClue(cv2Image):
 
   return (best_clue_type_index + 1), clueVal
 
-def callback(data):
-    cv2Image = bridge.imgmsg_to_cv2(data, "bgr8")
-    clueType, clueVal = readClue(cv2Image)
+def processImages():
+  for image in imageArray:
+    clueType, clueVal = readClue(image)
     if (clueType is not None) and (clueVal is not None):
       submitMessage = "TeamID,Password," + str(clueType) + "," + clueVal
       pub_score.publish(submitMessage)
     else:
       print("readClue returned None")
 
-    # if not os.path.exists("saved_images"):
-    #     os.makedirs("saved_images")
-    # global count
-    # count += 1
-    # filename = os.path.join("saved_images", f"image_{count:03d}.png")
-    # cv2.imwrite(filename, cv2Image.copy())
+def callback(data):
+  cv2Image = bridge.imgmsg_to_cv2(data, "bgr8")
+  imageArray.append(cv2Image)
+
+def clock_callback(data):
+  global current_time
+  global start_time
+  global hasBeenSent
+  seconds = data.clock.secs
+  current_time = seconds
+  if start_time is not None:
+    if seconds - start_time > 220:
+      if not hasBeenSent:
+        hasBeenSent = True
+        processImages()
+
+def callback_state(data):
+  global current_time
+  global start_time
+  if data.data == -1:
+    start_time = current_time
 
 def main():
     global pub_score
@@ -229,6 +251,8 @@ def main():
     pub_score = rospy.Publisher('/score_tracker', String, queue_size=1)
     # pub_view = rospy.Publisher('/image_viewer', Image, queue_size=1)
     rospy.Subscriber('/clue_images', Image, callback, queue_size=1)
+    rospy.Subscriber('/state_changer', Int32, callback_state)
+    rospy.Subscriber('/clock', Clock, clock_callback)
     rospy.spin()
 
 if __name__ == '__main__':
