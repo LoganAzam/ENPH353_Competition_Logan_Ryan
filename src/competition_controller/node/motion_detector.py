@@ -63,7 +63,7 @@ class MotionDetector:
             else:
                 rospy.loginfo("Yoda Mode.")
                 self.timeout = 750
-                self.min_pixels = 50
+                self.min_pixels = 70
             
             self.reset()
 
