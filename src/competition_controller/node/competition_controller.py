@@ -15,7 +15,7 @@ def master_controller():
 
     # 3. The 1-second Rule
     # The manual requires a 1s delay to let ROS Master register the topics 
-    rospy.sleep(1)
+    rospy.sleep(5)
 
     # 4. Start the Competition Timer
     # Format: 'TeamName,password,0,NA'
@@ -24,6 +24,8 @@ def master_controller():
     pub_score.publish(start_msg) 
     rospy.loginfo("Timer started for team: TeamID")
 
+    pub_state.publish(-1)
+    rospy.sleep(1)
     # 5. Set Initial State
     # 1 - road_PID
     pub_state.publish(1)
