@@ -255,8 +255,10 @@ def clock_callback(data):
     if seconds - start_time > 230:
       if not hasBeenSent:
         hasBeenSent = True
+        send_time = current_time
         processImages()
-      if seconds - start_time > 235:
+    if send_time is not None:
+      if seconds - send_time > 5:
         if not hasBeenStopped:
           hasBeenStopped = True
           stopTimer()
@@ -264,8 +266,14 @@ def clock_callback(data):
 def callback_state(data):
   global current_time
   global start_time
+  global hasBeenSent
+  global send_time
   if data.data == -1:
     start_time = current_time
+  elif data.data == -2:
+    hasBeenSent = True
+    send_time = current_time
+    processImages()
 
 def main():
     global pub_score
