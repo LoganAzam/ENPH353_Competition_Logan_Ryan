@@ -93,7 +93,7 @@ class RoadlessFollower:
             self.active = False
 
             # Switch the global state to sweep
-            self.pub_state.publish(9)
+            self.pub_state.publish(6)
             return
 
         lower_blue = np.array([100, 120, 30])
