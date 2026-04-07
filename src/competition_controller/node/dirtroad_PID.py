@@ -24,7 +24,7 @@ class DirtroadFollower:
         self.lakeFound = False
         self.turnkey = False
         self.init_line = True
-        self.trans = False
+        self.trans = False # Should be false
 
         rospy.sleep(1)
     

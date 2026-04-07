@@ -7,6 +7,7 @@ from std_msgs.msg import Int32, String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Twist
+from collections import deque # Necessary for sliding window
 
 class MotionDetector:
     def __init__(self):
@@ -20,12 +21,16 @@ class MotionDetector:
         self.moving_frames = 5
         self.timeout = 750 
         
+        # Sliding Window for Yoda Mode
+        self.window_size = 12
+        self.motion_history = deque(maxlen=self.window_size)
+        
         # State counters
         self.still_counter = 0
         self.motion_counter = 0
         self.frame_count = 0
         self.has_seen_motion = False
-        self.active_count = 0 # should be zero
+        self.active_count = 0 
 
         # Publishers
         self.pub_cmd = rospy.Publisher('/B1/cmd_vel', Twist, queue_size=1)
@@ -44,6 +49,7 @@ class MotionDetector:
         self.motion_counter = 0
         self.has_seen_motion = False
         self.frame_count = 0
+        self.motion_history.clear() # Clear history for new activation
 
     def state_callback(self, msg):
         self.active = (msg.data == 2)
@@ -61,7 +67,7 @@ class MotionDetector:
                 self.timeout = 750
                 self.min_pixels = 200
             else:
-                rospy.loginfo("Yoda Mode.")
+                rospy.loginfo("Yoda Mode (Sliding Window Active)")
                 self.timeout = 750
                 self.min_pixels = 70
             
@@ -73,7 +79,6 @@ class MotionDetector:
 
         self.frame_count += 1
         
-        # 1. Safety Timeout: Proceed if stuck too long
         if self.frame_count > self.timeout:
             rospy.logwarn("Timeout reached.")
             self.pub_state.publish(1)
@@ -95,40 +100,48 @@ class MotionDetector:
         diff = cv2.absdiff(self.reference, curr_gray)
         _, thresh = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)
         
-        # Clean up Gaussian noise
         kernel = np.ones((5, 5), np.uint8)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
         
-        # Focus on the crosswalk ROI
         h, w = thresh.shape
         roi = thresh[int(h/4):, int(w/4):int(3*w/4)]
         motion_pixels = cv2.countNonZero(roi)
 
         # 3. Decision Logic
         has_motion = motion_pixels > self.min_pixels
+        
+        # Add current frame status to the sliding window
+        self.motion_history.append(1 if has_motion else 0)
 
         if has_motion:
             self.motion_counter += 1
             self.still_counter = 0
-            self.reference = curr_gray # Update baseline
+            self.reference = curr_gray 
             
-            if self.motion_counter >= self.moving_frames and not self.has_seen_motion:
-                self.has_seen_motion = True
-                rospy.loginfo("Motion confirmed.")
+            # Standard consecutive check for Pedestrian/Truck
+            if not self.has_seen_motion and self.active_count < 3:
+                if self.motion_counter >= self.moving_frames:
+                    self.has_seen_motion = True
+                    rospy.loginfo("Motion confirmed (Consecutive).")
+            
+            # Window-based check for Yoda (active_count >= 3)
+            elif not self.has_seen_motion and self.active_count >= 3:
+                if sum(self.motion_history) >= 8:
+                    self.has_seen_motion = True
+                    rospy.loginfo("Yoda confirmed (8 of 12 window).")
         else:
             self.motion_counter = 0
             self.still_counter += 1
             if self.still_counter % 20 == 0:
-                self.reference = curr_gray # Periodic baseline update
+                self.reference = curr_gray
 
         # 4. Success Condition
         if self.has_seen_motion and self.still_counter >= self.still_frames:
-            rospy.loginfo("Clear - Returning to PID.")
+            rospy.loginfo("Clear - Returning to Road PID.")
             self.pub_state.publish(1)
             self.active = False
 
-        # Debugging view
         cv2.imshow("Motion ROI", roi)
         cv2.waitKey(1)
 
