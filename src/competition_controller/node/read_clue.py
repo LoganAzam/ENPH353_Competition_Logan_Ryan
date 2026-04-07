@@ -231,7 +231,7 @@ def clock_callback(data):
   seconds = data.clock.secs
   current_time = seconds
   if start_time is not None:
-    if seconds - start_time > 220:
+    if seconds - start_time > 230:
       if not hasBeenSent:
         hasBeenSent = True
         processImages()
