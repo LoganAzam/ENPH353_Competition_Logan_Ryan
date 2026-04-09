@@ -22,7 +22,7 @@ class MotionDetector:
         self.timeout = 750 
         
         # Sliding Window for Yoda Mode
-        self.window_size = 12
+        self.window_size = 14
         self.motion_history = deque(maxlen=self.window_size)
         
         # State counters
@@ -132,7 +132,7 @@ class MotionDetector:
             elif not self.has_seen_motion and self.active_count >= 3:
                 if sum(self.motion_history) >= 8:
                     self.has_seen_motion = True
-                    rospy.loginfo("Yoda confirmed (8 of 12 window).")
+                    rospy.loginfo("Yoda confirmed (8 of 14 window).")
         else:
             self.motion_counter = 0
             self.still_counter += 1
@@ -147,9 +147,9 @@ class MotionDetector:
                 self.pub_state.publish(5)
             self.active = False
 
-        cv2.imshow("Motion ROI", roi)
-        cv2.waitKey(1)
-        rospy.loginfo(f"Frame: {self.frame_count}, Motion Pixels: {motion_pixels}, Still Counter: {self.still_counter}, Motion Counter: {self.motion_counter}")
+        # cv2.imshow("Motion ROI", roi)
+        # cv2.waitKey(1)
+        # rospy.loginfo(f"Frame: {self.frame_count}, Motion Pixels: {motion_pixels}, Still Counter: {self.still_counter}, Motion Counter: {self.motion_counter}")
 
 if __name__ == '__main__':
     rospy.init_node('motion_detector')

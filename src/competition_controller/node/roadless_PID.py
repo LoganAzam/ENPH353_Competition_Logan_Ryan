@@ -31,7 +31,7 @@ class RoadlessFollower:
                 rospy.loginfo("roadless_PID node activated.")
                 self.straight_line_buffer = rospy.get_time() + 5.5
                 self.turn_buffer = rospy.get_time() + 5.5 + 0.6
-                self.run = rospy.get_time() + 5.5 + 0.5 + 4.5
+                self.run = rospy.get_time() + 5.5 + 0.5 + 4.0
                 self.blue_pix_suppression = rospy.get_time() + 5.0
             self.active = True
         else:

@@ -34,6 +34,7 @@ class RoadFollower:
         self.signcount = 0
         self.foundTruck = False
         self.truck_init = True
+        self.safe_turn = False
 
         # Mandatory 1-second delay for ROS Master registration 
         rospy.sleep(1)
@@ -55,6 +56,10 @@ class RoadFollower:
                 self.blue_pix_suppression_end = rospy.get_time() + 7.0
             else:
                 self.blue_pix_suppression_end = rospy.get_time() + 2.0
+
+            if self.signcount == 2:
+                self.safe_turn_start = rospy.get_time() + 3.0
+                self.safe_turn_end = rospy.get_time() + 4.5
         else:
             if self.active:
                 rospy.loginfo("road_PID node deactivated.")
@@ -93,6 +98,11 @@ class RoadFollower:
             self.pub_state.publish(2)
             return
 
+        if self.signcount == 2 and rospy.get_time() > self.safe_turn_start and rospy.get_time() < self.safe_turn_end:
+            self.safe_turn = True
+        else:
+            self.safe_turn = False
+
         # --- MODE SWITCH: NORMAL VS ROUNDABOUT ---
         if self.signcount == 3 and rospy.get_time() < self.roundabout_hug_end and self.foundTruck:
             # 1. Detect WHITE lines specifically
@@ -121,7 +131,11 @@ class RoadFollower:
 
         # 3. PID Calculation
         moments = cv2.moments(mask)
-        if moments['m00'] > 0:
+        if self.safe_turn:
+            rospy.loginfo("Safe Turn Mode: Executing predefined turn to avoid problem spot.")
+            move.linear.x = 0.5
+            move.angular.z = -0.6
+        elif moments['m00'] > 0:
             cx = int(moments['m10'] / moments['m00'])
             error = cx - target_center
             
